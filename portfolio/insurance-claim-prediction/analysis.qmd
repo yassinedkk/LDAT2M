@@ -1,6 +1,7 @@
 ---
 title: "PROJET : LDATS2350 Data Mining"
-author: "ZEAMARI YASSINE"\nsubtitle: "DATS2MS"
+author: "ZEAMARI YASSINE"
+subtitle: "DATS2MS"
 number-sections: true
 format: 
   pdf:
