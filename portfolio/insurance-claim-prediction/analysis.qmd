@@ -1,0 +1,629 @@
+---
+title: "PROJET : LDATS2350 Data Mining"
+author: "ZEAMARI YASSINE"
+subtitle: "DATS2MS"
+number-sections: true
+format: 
+  pdf:
+   fig-pos: "H" 
+   include-in-header:
+      text: |
+        \usepackage{booktabs}
+        \usepackage{array}
+       
+editor: visual
+output:
+  pdf_document:
+    keep_tex: true
+    latex_engine: xelatex
+geometry:                             
+  - top=25mm
+  - bottom=25mm
+  - right=15mm
+  - left=15mm
+execute:
+  warning: false
+  message: false
+---
+
+## INTRODUCTION
+
+Dans le secteur de l’assurance automobile,pour réduire les coûts et mieux cibler les profils à risque, il est essentiel de se concentrer sur la prévention des risques liés aux sinistres.Dans ce projet objectif principal la prédiction de l’occurrence d’un accident pendant la durée de validité d’une police d’assurance à l’aide de techniques de data mining appliquées à un jeu de données réel.
+
+La variable cible `claimNumberMD` est binaire : elle indique la présence ou l’absence d’un accident durant la période couverte par la police. Toutes les autres variables disponibles seront utilisées comme prédicteurs pour modéliser ce phénomène. Il s’agit d’un problème de classification.
+
+## Compréhension et préparation des données
+
+### Analyse exploratoire
+
+Avant d’entraîner des modèles prédictifs, une analyse exploratoire des données,est indispensable. Elle permet de comprendre la structure du jeu de données, de détecter certains problèmes (valeurs manquantes, outliers, distributions symétrie ou asymétrie).
+
+#### analyse univariée
+
+```{python}
+#| echo: false
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+pd.set_option('display.max_columns', None)  # Afficher toutes les colonnes
+pd.set_option('display.width', 1000)       # Largeur d'affichage
+pd.set_option('display.max_rows', None)
+file_path = "data/dataSetJune2025.csv"
+data = pd.read_csv(file_path)
+df = pd.DataFrame(data)
+df.describe()
+```
+
+```{python}
+#| echo: false
+#| fig-asp: 0.2
+import seaborn as sns
+numeric_cols = ["uwYear","age","nYears","carVal","cover","density"]
+n_cols = 3  # Nombre de colonnes
+n_rows = (len(numeric_cols) + n_cols - 1) // n_cols  
+
+  
+for i, col in enumerate(numeric_cols, 1):
+    plt.subplot(n_rows, n_cols, i)  
+    sns.boxplot(y=df[col])
+    plt.title(col)
+plt.tight_layout()
+plt.show()
+```
+
+-   Les données révèlent plusieurs distributions asymétriques, notamment pour les variables nYears et density .
+-   Des outliers significatifs apparaissent principalement dans la variable carVal.
+
+#### analyse bivariée
+
+##### Numérique vs numérique
+
+```{python}
+#| echo: false
+#| fig-asp: 0.2
+numerical_vars = ['age', 'nYears', 'carVal', 'density']
+
+# Matrice de corrélation
+sns.heatmap(df[numerical_vars].corr(method='pearson'), annot=True, cmap='coolwarm')
+plt.title("Corrélation de Pearson")
+plt.show()
+```
+
+-   Les variables continues montrent très peu de corrélations entre elles, suggérant qu'elles sont largement indépendantes.
+
+##### Numérique vs Catégoriel
+
+nous avons utilisé un test d’analyse de variance (ANOVA). Ce test permet de comparer les moyennes d’une variable numérique entre les différentes modalités d’une variable catégorielle ici les classes 0 (pas d'accident) et 1 (accident).
+
+```{python}
+#| echo: false
+import scipy.stats as stats
+for var in numerical_vars:
+    group0 = df[df['claimNumbMD'] == 0][var]
+    group1 = df[df['claimNumbMD'] == 1][var]
+    
+    f_stat, p_val = stats.f_oneway(group0, group1)
+    
+    print(f"ANOVA pour {var} :")
+    print(f"  F-statistique = {f_stat:.2f}, p-value = {p_val:.5f}")
+    if p_val < 0.05:
+        print("  ↳ Différence significative ")
+    else:
+        print("  ↳ Pas de différence significative ")
+    print("-" * 50)
+```
+
+Ces résultats confirment que les variables `age`, `nYears`, `carVal` et `density` présentent une forte influence sur la survenue d’un sinistre.
+
+##### Catégoriel vs Catégoriel
+
+Pour examiner les relations entre les variables catégorielles et la variable cible `claimNumberMD`, nous avons effectué des tests du `Chi²` d’indépendance à partir de tableaux de contingence.
+
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Variable} & \textbf{Chi²} & \textbf{dof} & \textbf{p-value} & \textbf{Conclusion} \\
+\midrule
+uwYear       & 12.28        & 1           & 0.0005          & Liée ($p < 0.05$) \\
+gender & 54.60 & 1 & 0 & Liée ($p < 0.05$)  \\
+carType & 88.17 & 4 & 0 & Liée ($p < 0.05$)  \\
+carCat & 181.3 & 4 & 0 & Liée ($p < 0.05$)  \\
+job & 1049.76 & 4 & 0 & Liée ($p < 0.05$)  \\
+cover & 142.71 & 1 & 0 & Liée ($p < 0.05$)  \\
+\bottomrule
+\end{tabular}
+
+-   Le test du Chi² montre que toutes les variables catégorielles testées sont significativement associées à `claimNumberMD`.
+
+les graphiques de contingence montrent clairement les relations entre différentes variables catégorielles et la variable `claimNumberMD`.
+
+-   Il semble que la probabilité d’avoir un sinistre soit plus élevée pour les polices souscrites en 2010.
+-   Il y a un effet du genre sur la survenue des sinistres, les hommes semblent plus concernés.
+-   Le type de voiture influence donc le risque.
+-   Les petites voitures sont plus exposées au risque de sinistre que les voitures moyennes ou grandes.
+-   Les `employed` et `Housewife` semblent avoir une proportion de sinistres relativement élevée .
+-   Les personnes sans couverture (cover = 0) ont une proportion plus élevée de sinistres.
+
+```{python}
+#| echo: false
+#| warning: false
+#| fig-asp: 0.2
+
+ contingency_data = {
+    "uwYear": pd.DataFrame({'0': [6286, 6211], '1': [5901, 6376]}, index=['2009', '2010']),
+    "gender": pd.DataFrame({'0': [4551, 7946], '1': [3923, 8354]}, index=['Female', 'Male']),
+    "carType": pd.DataFrame({'0': [3532, 2736, 1753, 2477, 1999], '1': [3003, 2549, 1717, 2605, 2403]}, 
+                            index=['A', 'B', 'C', 'D', 'E']),
+    "carCat": pd.DataFrame({'0': [4511, 4568, 3418], '1': [3580, 4520, 4177]}, 
+                           index=['Large', 'Medium', 'Small']),
+    "job": pd.DataFrame({'0': [3828, 2458, 1790, 2673, 1748], 
+                         '1': [4306, 2922, 464, 2089, 2496]}, 
+                        index=['Employed', 'Housewife', 'Retired', 'Self-employed', 'Unemployed']),
+    "cover": pd.DataFrame({'0': [5983, 6514], '1': [6810, 5467]}, index=['0', '1'])
+}
+
+# Création de la figure
+fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(10, 8))
+axes = axes.flatten()
+
+for i, (var, df1) in enumerate(contingency_data.items()):
+    df_plot = df1.copy()
+    df_plot[['0', '1']] = df_plot[['0', '1']].astype(int)
+    df_plot.plot(kind='bar', stacked=True, ax=axes[i],color=['#1f77b4', '#ff7f0e'])
+    axes[i].set_title(f'Tableau de contingence: {var}')
+    axes[i].set_xlabel(var,fontsize=8)
+    axes[i].set_ylabel('count', fontsize=8)
+    axes[i].legend(title='claimNumberMD', fontsize=8)
+
+plt.tight_layout(pad=1.5)
+plt.show()
+```
+
+## PRéTRAITEMENT
+
+### Détection des doublons
+
+L'ensemble de données contient `21` lignes dupliquées (0.085% des observations) identifiées comme des copies exactes sur toutes les variables (même `claimNumberMD`) ce qui peut correspondre à deux cas :
+
+-   Un même client avec deux contrats identiques
+
+-   Deux clients différents ayant exactement les mêmes caractéristiques (très rare).
+
+-   mais ces doublons résultent probablement d'erreurs de saisie ou d'import multiple.
+
+-   Aucune colonne supplémentaire (comme un ID client) ne justifiait leur maintien.
+
+-   Ils n'apportent pas d’information supplémentaire leur suppression ne changera ni les proportions ni les relations,donc on décide de les supprimer.
+
+```{python}
+#| echo: false
+
+duplicates = df[df.duplicated(keep=False)]
+df_clean = df.drop_duplicates()
+
+```
+
+### valeurs manquantes
+
+Une vérification des valeurs manquantes a été effectuée, aucune variable ne présente de valeur manquante
+
+```{python}
+#| echo: false
+print("Valeurs manquantes par colonne :")
+print(df_clean.isnull().sum())
+
+```
+
+### traitement des outliers
+
+Pour détecter les outliers, nous avons utilisé la méthode de l’IQR et la méthode Z-score.
+
+\begin{table}[h]
+\centering
+\caption{Analyse des outliers par variable}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Variable} & \textbf{Outliers (Plage normale)} & \textbf{Outliers (Z-score > 3)} & \textbf{Plage normale} \\ \hline
+uwYear & 0 (0.00\%) & 0 & [2007.50, 2011.50] \\ \hline
+age & 0 (0.00\%) & 0 & [-4.50, 79.50] \\ \hline
+nYears & 0 (0.00\%) & 0 & [-11.00, 21.00] \\ \hline
+carVal & 648 (2.62\%) & 157 & [-13167.50, 44532.50] \\ \hline
+cover & 0 (0.00\%) & 0 & [-1.50, 2.50] \\ \hline
+density & 0 (0.00\%) & 0 & [-154.51, 413.76] \\ \hline
+claimNumbMD & 0 (0.00\%) & 0 & [-1.50, 2.50] \\ \hline
+\end{tabular}
+\end{table}
+
+```{python}
+#| echo: false
+#| output: false
+numeric_cols = df_clean.select_dtypes(include=['int64', 'float64']).columns.tolist()
+numeric_cols = [col for col in numeric_cols if col != 'claimNumberMD']
+outliers_dict = {}
+
+for col in numeric_cols:
+    Q1 = df_clean[col].quantile(0.25)
+    Q3 = df_clean[col].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    
+    outliers = df_clean[(df_clean[col] < lower_bound) | (df_clean[col] > upper_bound)]
+    outliers_dict[col] = len(outliers)
+    
+    print(f"\nOutliers dans {col}: {len(outliers)} ({len(outliers)/len(df_clean)*100:.2f}%)")
+    print(f"Plage normale : [{lower_bound:.2f}, {upper_bound:.2f}]")
+```
+
+Seule la variable `carVal` présente des valeurs aberrantes significatives.
+
+Étant donné que `carVal` est positive et présente une distribution asymétrique , nous avons appliqué une transformation par racine carrée `carVal_sqrt`.
+
+Une nouvelle détection d’outliers a été réalisée sur la variable transformée:
+
+```{python}
+#| echo : false
+df_clean["carVal_sqrt"]=np.sqrt(df_clean["carVal"])
+outliers_dict1 = {}
+Q1 = df_clean["carVal_sqrt"].quantile(0.25)
+Q3 = df_clean["carVal_sqrt"].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+outliers = df_clean[(df_clean["carVal_sqrt"] < lower_bound) | (df_clean["carVal_sqrt"] > upper_bound)]
+outliers_dict1["carVal_sqrt"] = len(outliers)
+print(f"\nOutliers dans carVal_sqrt: {len(outliers)} ({len(outliers)/len(df_clean)*100:.2f}%)")
+```
+
+```{python}
+#| echo : false
+#| fig-asp: 0.1
+#| warning : false
+#| message : false
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=pd.errors.SettingWithCopyWarning)
+pd.options.mode.chained_assignment = None 
+pd.options.mode.chained_assignment = None 
+plt.figure(figsize=(12, 5))
+
+plt.subplot(1, 2, 1)
+sns.histplot(df_clean['carVal'], kde=True)
+plt.title('Distribution de carVal')
+
+plt.subplot(1, 2, 2)
+sns.histplot(df_clean['carVal_sqrt'], kde=True)
+plt.title('Distribution de sqrt(carVal)')
+
+plt.tight_layout()
+plt.show()
+```
+
+### Standardisation des variables continues et Encodage des variables catégorielles
+
+-   Les variables numériques ont été standardisées à l’aide du `StandardScaler`,cela est particulièrement utile pour les algorithmes sensibles à l’échelle des données(ex :K-NN, SVM, régression logistique).
+-   Les variables catégorielles ont été transformées en variables numériques via un encodage one-hot.
+
+```{python}
+#| echo : false
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+df_clean[numerical_vars] = scaler.fit_transform(df_clean[numerical_vars])
+df_clean=df_clean.drop(columns=["carVal"])
+df_encoded = pd.get_dummies(df_clean, drop_first=True)
+
+```
+
+## Modélisation et comparaison des techniques
+
+### modèle de régression logistique
+
+Nous avons ajusté un modèle de régression logistique afin de prédire la probabilité de survenue d’un sinistre (`claimNumbMD`):
+
+```{python}
+#| fig-width: 6
+#| fig-height: 4
+#| echo: false
+#| layout-ncol: 2
+#| warning: false
+X = df_encoded.drop(columns=["claimNumbMD"]) 
+y = df_encoded["claimNumbMD"]
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score,roc_curve, auc
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=123, stratify=y)
+model_log = LogisticRegression(max_iter=1000)
+model_log.fit(X_train, y_train)
+
+y_pred = model_log.predict(X_test)
+y_proba = model_log.predict_proba(X_test)[:, 1]
+
+
+cm = confusion_matrix(y_test, y_pred)
+
+# Affiche avec seaborn
+plt.figure(figsize=(6, 4))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=[0,1], yticklabels=[0,1])
+plt.xlabel("Prédictions")
+plt.ylabel("Réel")
+plt.title("Matrice de Confusion")
+plt.show()
+
+# Calcul des taux pour la courbe ROC
+fpr, tpr, thresholds = roc_curve(y_test, y_proba)
+roc_auc = auc(fpr, tpr)
+
+# Tracé
+plt.figure(figsize=(6, 4))
+plt.plot(fpr, tpr, label=f"ROC curve (AUC = {roc_auc:.2f})", color="darkorange")
+plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("Courbe ROC")
+plt.legend(loc="lower right")
+plt.grid()
+plt.show()
+```
+
+L’AUC (Area Under Curve) est de 0.69, ce qui indique une performance modérée du modèle,La matrice de confusion révèle un taux de bonnes prédictions d'environ 63-66%.
+
+### Modèle d’Arbres de Décision
+
+Le modèle d’arbre de décision a été utilisé aussi pour la prédiction de la variable cible,ce modèle présente l’avantage d’être interprétable, permettant de visualiser facilement les règles de décision issues des variables explicatives.il détecte environ 56% des sinistres, ce qui est acceptable mais pas optimal,L’AUC = 0.56 ce qui est à peine meilleur qu’un modèle aléatoire.
+
+```{python}
+#| fig-width: 6
+#| fig-height: 4
+#| echo: false
+#| layout-ncol: 2
+#| warning: false
+from sklearn.tree import DecisionTreeClassifier
+from sklearn import tree
+tree_model = DecisionTreeClassifier(random_state=42)
+tree_model.fit(X_train, y_train)
+
+y_pred_tree = tree_model.predict(X_test)
+y_proba_tree = tree_model.predict_proba(X_test)[:, 1]
+
+
+# Tracer l'arbre
+# Matrice de confusion
+cm_tree = confusion_matrix(y_test, y_pred_tree)
+plt.figure(figsize=(6,4))
+sns.heatmap(cm_tree, annot=True, fmt="d", cmap="YlGnBu", xticklabels=[0,1], yticklabels=[0,1])
+plt.xlabel("Prédictions")
+plt.ylabel("Réel")
+plt.title("Matrice de Confusion - Arbre de Décision")
+plt.show()
+
+# Courbe ROC
+fpr_tree, tpr_tree, _ = roc_curve(y_test, y_proba_tree)
+roc_auc_tree = auc(fpr_tree, tpr_tree)
+
+plt.figure(figsize=(6, 4))
+plt.plot(fpr_tree, tpr_tree, label=f"ROC curve (AUC = {roc_auc_tree:.2f})", color="darkgreen")
+plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("Courbe ROC - Arbre de Décision")
+plt.legend(loc="lower right")
+plt.grid()
+plt.show()
+```
+
+### Modèle K-Nearest Neighbors
+
+Le modèle K-NN a été optimisé à l’aide d'une validation croisée (GridSearchCV), ce qui a permis d’identifier le meilleur paramètre pour `n_neighbors=19`,la valeur de l’AUC est de 0.64, ce qui suggère une capacité de discrimination modeste
+
+```{python}
+#| fig-pos: "H"
+#| fig-width: 6
+#| fig-height: 4
+#| echo: false
+#| layout-ncol: 2
+#| warning: false
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+from sklearn.model_selection import GridSearchCV
+from sklearn.neighbors import KNeighborsClassifier
+param_grid = {
+    'n_neighbors': list(range(1, 21))
+}
+
+knn = KNeighborsClassifier()
+grid_search = GridSearchCV(knn, param_grid, cv=5, scoring='accuracy', verbose=0, n_jobs=-1)
+gz=grid_search.fit(X_train, y_train)
+
+best_knn = gz.best_estimator_
+y_pred = best_knn.predict(X_test)
+y_proba = best_knn.predict_proba(X_test)[:, 1]
+
+cm = confusion_matrix(y_test, y_pred)
+
+# Affiche avec seaborn
+plt.figure(figsize=(6, 4))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=[0,1], yticklabels=[0,1])
+plt.xlabel("Prédictions")
+plt.ylabel("Réel")
+plt.title("Matrice de Confusion")
+plt.show()
+# Calcul des taux pour la courbe ROC
+fpr, tpr, thresholds = roc_curve(y_test, y_proba)
+roc_auc = auc(fpr, tpr)
+
+# Tracé
+plt.figure(figsize=(6, 4))
+plt.plot(fpr, tpr, label=f"ROC curve (AUC = {roc_auc:.2f})", color="darkorange")
+plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("Courbe ROC")
+plt.legend(loc="lower right")
+plt.grid()
+plt.show()
+
+```
+
+### Réseaux de Neurones (MLP)
+
+```{python}
+#| fig-pos: "H"
+#| fig-width: 6
+#| fig-height: 4
+#| echo: false
+#| layout-ncol: 2
+#| warning: false
+from sklearn.neural_network import MLPClassifier
+param_grid = {
+    'hidden_layer_sizes': [(50,), (100,), (50, 50)],
+    'activation': ['relu', 'tanh'],
+    'solver': ['adam', 'sgd'],
+    'alpha': [0.0001, 0.001],
+}
+mlp = MLPClassifier(max_iter=300, random_state=42)
+grid = GridSearchCV(mlp, param_grid, cv=5, scoring='accuracy', verbose=0, n_jobs=-1)
+grid.fit(X_train, y_train)
+
+best_model = grid.best_estimator_
+y_pred = best_model.predict(X_test)
+y_proba=y_proba = best_model.predict_proba(X_test)[:, 1]
+
+
+conf_mat = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(6, 4))
+sns.heatmap(conf_mat, annot=True, fmt='d', cmap='Blues')
+plt.title("Matrice de confusion - MLP")
+plt.xlabel("Prédit")
+plt.ylabel("Réel")
+plt.show()
+
+fpr, tpr, thresholds = roc_curve(y_test, y_proba)
+roc_auc = auc(fpr, tpr)
+
+# Affichage
+plt.figure(figsize=(6, 4))
+plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([-0.01, 1.0])
+plt.ylim([0.0, 1.01])
+plt.xlabel('Taux de faux positifs (FPR)')
+plt.ylabel('Taux de vrais positifs (TPR)')
+plt.title('Courbe ROC - MLPClassifier')
+plt.legend(loc='lower right')
+plt.grid(True)
+plt.show()
+```
+
+Le modèle de réseau de neurones (MLP) présente des performances très similaires à la régression logistique avec une AUC de 0.68, soit une capacité de discrimination légèrement inférieure,la matrice de confusion montre une amélioration notable dans la détection des vrais positifs mais cette amélioration s'accompagne d'une augmentation des faux positifs.
+
+### Naïve Bayes
+
+Un modèle de classification Naïve Bayes a également été testé en raison de sa rapidité d'exécution et de sa simplicité
+
+```{python}
+#| fig-pos: "H"
+#| fig-width: 6
+#| fig-height: 4
+#| echo: false
+#| layout-ncol: 2
+#| warning: false
+from sklearn.naive_bayes import GaussianNB
+nb_model = GaussianNB()
+nb_model.fit(X_train, y_train)
+
+# Prédictions
+y_pred = nb_model.predict(X_test)
+y_proba = nb_model.predict_proba(X_test)[:, 1]  # Pour AUC/ROC
+
+# Matrice de confusion
+conf_m = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(6, 4))
+sns.heatmap(conf_m, annot=True, fmt='d', cmap='Blues')
+plt.title("Matrice de confusion - Naïve Bayes")
+plt.xlabel("Prédit")
+plt.ylabel("Réel")
+plt.show()
+
+# Courbe ROC
+fpr, tpr, _ = roc_curve(y_test, y_proba)
+auc = roc_auc_score(y_test, y_proba)
+
+plt.figure(figsize=(6, 4))
+plt.plot(fpr, tpr, label=f"ROC curve (AUC = {auc:.2f})", color='orange')
+plt.plot([0, 1], [0, 1], 'k--')
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("Courbe ROC - Naïve Bayes")
+plt.legend(loc="lower right")
+plt.grid(True)
+plt.show()
+```
+
+Le modèle Naïve Bayes affiche des performances légèrement inférieures aux modèles précédents avec une AUC de 0.67,la matrice de confusion révèle un profil de prédiction plus équilibré : le modèle identifie correctement 2988 vrais positifs avec seulement 689 faux négatifs une bonne sensibilité ,mais il génère également 2213 faux positifs pour 1536 vrais négatifs, résultant en une spécificité plus faible.
+
+## COMPARAISON LES MODELES
+
+le tableau cI-dessous présente les résultats des différents modèles de classification:
+
+| Model                 | Class | Precision | Recall | F1-score | Support | Accuracy |
+|-----------------------|-------|-----------|--------|----------|---------|----------|
+| Regression Logistique | 0     | 0.65      | 0.61   | 0.63     | 3749    | 0.64     |
+|                       | 1     | 0.63      | 0.66   | 0.64     | 3677    |          |
+| Arbre de Décision     | 0     | 0.65      | 0.61   | 0.63     | 3749    | 0.64     |
+|                       | 1     | 0.63      | 0.66   | 0.64     | 3677    |          |
+| KNN                   | 0     | 0.61      | 0.62   | 0.62     | 3749    | 0.61     |
+|                       | 1     | 0.61      | 0.59   | 0.60     | 3677    |          |
+| MLP                   | 0     | 0.61      | 0.62   | 0.62     | 3749    | 0.61     |
+|                       | 1     | 0.61      | 0.59   | 0.60     | 3677    |          |
+| Naive Bayes           | 0     | 0.69      | 0.41   | 0.51     | 3749    | 0.61     |
+|                       | 1     | 0.57      | 0.81   | 0.67     | 3677    |          |
+
+| 
+
+on compare des modèles de classification selon leurs caractéristiques globales et leurs performances
+
+| Modèle | Avantages | Inconvénients |   |
+|------------------|------------------|-------------------|------------------|
+| Régression Logistique | Interprétable, rapide, bonnes performances globales | Hypothèse de linéarité |  |
+| Arbre de Décision | Interprétable, capture les interactions et la non-linéarité ,Performance identique à la régression logistique | Risque de surapprentissage sans régularisation,il génére des faux positifs |  |
+| KNN | Simple, non-paramétrique | Sensible au choix de K, performances globales faibles |  |
+| MLP | Capable de modéliser des relations complexes | Temps de calcul élevé, peu interprétable, performance décevante |  |
+| Naïve Bayes | Très rapide, excellent rappel sur la classe 1 (81%) | Très faible rappel pour la classe 0, performances déséquilibrées |  |
+
+La régression logistique et l’arbre de décision se distinguent comme les meilleurs compromis atteignant une accuracy de 64% et un F1-score équilibré En plus de leurs performances correctes, ces modèles sont interprétables.
+
+Cependant si l’on considère la capacité à bien discriminer les classes mesurée par l’AUC la régression logistique (AUC = 0.69) surpasse nettement l’arbre de décision (AUC = 0.56),cela indique que la régression logistique est plus fiable pour séparer les cas positifs et négatifs.
+
+Par conséquent, la régression logistique reste le modèle recommandé, car elle combine de bonnes performances de classification, une bonne capacité de discrimination.
+
+```{python}
+#| echo: false
+
+coefficients = pd.DataFrame({
+    'Variable': X_train.columns,
+    'Coefficient': model_log.coef_[0]
+})
+
+coefficients['OddsRatio'] = np.exp(coefficients['Coefficient'])
+
+coefficients['AbsCoeff'] = np.abs(coefficients['Coefficient'])
+coefficients_sorted = coefficients.sort_values(by='AbsCoeff', ascending=False)
+
+plt.figure(figsize=(6, 4))
+sns.barplot(x='Coefficient', y='Variable', data=coefficients_sorted.head(15), palette='coolwarm')
+plt.title("Top 15 variables influentes (Régression Logistique)")
+plt.axvline(x=0, color='black', linestyle='--')
+plt.xlabel("Coefficient ")
+plt.ylabel("Variable")
+plt.tight_layout()
+plt.show()
+```
+
+le graphique montre les 15 variables les plus influentes sur la probabilité d’un sinistre (`claimNumberMD`),parmi les facteurs réducteurs de risque, on trouve notamment la variable `job_Retired`, qui possède le coefficient le plus négatif cela suggère que les retraités sont significativement moins susceptibles de déclarer un sinistre ,de même l’âge du condicteur plus élevé est associés à une probabilité plus faible de sinistre.
+
+À l’inverse, certaines variables augmentent significativement le risque. par exemple les conducteurs avec un véhicule de `type E`, vivant dans des zones de forte densité (`density`), de sexe masculin (`gender_Male`) ou étant sans emploi (job_Unemployed) ont une probabilité plus élevée de déclarer un sinistre.
+
+## CONCLUSION
+
+Ce projet visait à prédire la survenue d’un sinistre à l’aide de données client après nettoyage, exploration et essais de transformation des variables et plusieurs modèles ont été testés, la régression logistique est le meilleur compromis entre performance et interprétabilité.
+
+Le modèle présente une performance modeste, probablement due à un manque de variables explicatives plus fines (ex. : historique complet, comportement de conduite),malgré des tentatives de feature engineering, les performances n'ont pas été significativement améliorées, cela suggère que les informations disponibles dans les données restent limitées.
