@@ -1,27 +1,40 @@
 # Insurance Claim Prediction
 
-An end-to-end binary classification project that predicts whether an automobile insurance policy will generate a claim during its coverage period. The work was completed for the LDATS2350 Data Mining course and has been reorganized into a reproducible, portfolio-ready analysis.
+An academic binary-classification project that predicts whether an automobile insurance policy will generate a claim during its coverage period.
 
-**[Read the original coursework report](report.pdf)** - the complete report submitted for the LDATS2350 Data Mining project.
+**[Read the original coursework report](report.pdf)** — the complete report submitted for the LDATS2350 Data Mining course.
 
 ## Project overview
 
-The target, `claimNumbMD`, indicates whether a claim occurred. The analysis covers exploratory data analysis, duplicate and outlier checks, preprocessing, model comparison, and interpretation of the selected model.
+The dataset contains 24,774 one-year automobile insurance contracts. The target, `claimNumbMD`, indicates whether a claim occurred.
 
-Five classifiers are compared:
+The project covers:
 
-- Logistic regression
-- Decision tree
-- K-nearest neighbours
-- Multilayer perceptron
-- Gaussian Naive Bayes
+- exploratory data analysis;
+- duplicate, missing-value and outlier checks;
+- square-root transformation of vehicle value;
+- standardisation and one-hot encoding;
+- training and comparison of five classification models;
+- interpretation of logistic-regression coefficients.
 
-On the reproducible held-out split, the MLP produced the highest ROC AUC (**0.692**), narrowly ahead of logistic regression (**0.690**). Logistic regression remains the preferred portfolio model because it offers nearly identical discrimination with substantially stronger interpretability. Naive Bayes achieved the highest claim recall (**0.790**) but produced substantially more false positives.
+## Models and reported results
+
+| Model | Accuracy | ROC AUC | Main observation |
+|---|---:|---:|---|
+| Logistic regression | 0.64 | 0.69 | Best balance between performance and interpretability |
+| Decision tree | 0.64 | 0.56 | Interpretable, but weak discrimination |
+| K-nearest neighbours | 0.61 | 0.64 | Best value selected: 19 neighbours |
+| Multilayer perceptron | 0.61 | 0.68 | Similar discrimination, but less interpretable |
+| Gaussian Naive Bayes | 0.61 | 0.67 | Highest recall for claims: 0.81 |
+
+The original analysis recommends logistic regression because it combines balanced classification performance, the highest reported ROC AUC and direct interpretation of the predictors.
 
 ## Repository structure
 
 ```text
 portfolio/insurance-claim-prediction/
+├── data/
+│   └── dataSetJune2025.csv
 ├── README.md
 ├── report.pdf
 ├── analysis.qmd
@@ -29,7 +42,9 @@ portfolio/insurance-claim-prediction/
 └── .gitignore
 ```
 
-The course dataset is included at `data/dataSetJune2025.csv`, so the analysis can be rendered immediately after installing the dependencies.
+- `report.pdf` is the original submitted report.
+- `analysis.qmd` is Yassine Zeamari's original Quarto source. Only the local dataset path was made portable and the student identification number was removed for privacy.
+- `data/dataSetJune2025.csv` contains the course dataset, published with the user's authorization.
 
 ## Reproduce the analysis
 
@@ -43,29 +58,15 @@ pip install -r requirements.txt
 quarto render analysis.qmd
 ```
 
-## Methodology
+## Main conclusions
 
-The portfolio version improves the original notebook in several ways:
+The available policyholder, vehicle and geographic variables provide only moderate predictive performance. Logistic regression remains the preferred model because it is competitive while allowing the direction and relative importance of associations to be discussed.
 
-- all preprocessing is learned on the training data through scikit-learn pipelines, preventing train-test leakage;
-- the dataset path is portable rather than tied to one computer;
-- every model uses the same stratified split and evaluation functions;
-- model selection emphasizes ROC AUC, recall, precision, F1 score, and operational trade-offs rather than accuracy alone;
-- random seeds are fixed for reproducibility.
+The original report identifies older age and retired status as associated with lower predicted risk, while male gender, unemployment, type-E vehicles and higher-density areas are associated with higher predicted risk. These are model associations, not causal conclusions.
 
-## Main findings
+## Limitations and responsible use
 
-- Claim occurrence is associated with driver, vehicle, occupation, coverage, and geographic-density variables.
-- The MLP produced the highest ROC AUC (0.692), only 0.002 above logistic regression (0.690).
-- Logistic regression achieved 0.637 accuracy, 0.660 recall, and a 0.643 F1 score while remaining directly interpretable.
-- Naive Bayes maximised recall (0.790), illustrating the trade-off between detecting claims and generating false positives.
-- Older and retired policyholders were associated with lower predicted claim risk in the fitted logistic model.
-- Male drivers, unemployed policyholders, type-E vehicles, and higher-density areas were associated with higher predicted risk.
-- Moderate overall performance suggests that richer behavioural and claims-history features would be needed for production use.
-
-## Responsible use
-
-This is an educational project, not a production underwriting system. Variables such as gender and occupation may create legal, ethical, and fairness concerns. A real deployment would require bias testing, calibration, monitoring, governance, and review of applicable insurance regulation.
+This is an educational project, not a production underwriting system. The results are based on one train/test split, and the available predictors do not capture richer information such as driving behaviour or complete claim history. Variables such as gender and occupation would require fairness, legal and governance review before operational use.
 
 ## Author
 
