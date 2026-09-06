@@ -279,7 +279,7 @@ Performance remains too modest for direct operational use. Future work should ad
 
 ## Limitations and responsible use
 
-- The dataset is course material and is not distributed in this repository.
+- The dataset was provided for the academic project and is included in this repository with the user's authorization.
 - The analysis demonstrates association and prediction, not causality.
 - A single held-out split can be noisy; repeated cross-validation would improve uncertainty estimates.
 - Sensitive attributes require fairness, legal, and governance review before any insurance use.
