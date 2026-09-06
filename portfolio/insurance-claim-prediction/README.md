@@ -69,4 +69,4 @@ This is an educational project, not a production underwriting system. Variables 
 
 ## Author
 
-Yassine Zeamari — MSc in Data Science
+Yassine Zeamari — MSc in Data Science, Statistical Orientation, UCLouvain
