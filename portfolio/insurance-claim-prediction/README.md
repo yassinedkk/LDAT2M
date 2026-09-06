@@ -2,7 +2,7 @@
 
 An end-to-end binary classification project that predicts whether an automobile insurance policy will generate a claim during its coverage period. The work was completed for the LDATS2350 Data Mining course and has been reorganized into a reproducible, portfolio-ready analysis.
 
-**[Read the rendered portfolio report](report.pdf)** - a five-page PDF with the methodology, verified results, charts, interpretation, and conclusions.
+**[Read the original coursework report](report.pdf)** - the complete report submitted for the LDATS2350 Data Mining project.
 
 ## Project overview
 
