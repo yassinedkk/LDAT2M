@@ -8,6 +8,7 @@ analysis.html
 analysis.pdf
 data/*.csv
 data/*.parquet
+!data/dataSetJune2025.csv
 !data/.gitkeep
 .DS_Store
 Thumbs.db

@@ -14,7 +14,7 @@ Five classifiers are compared:
 - Multilayer perceptron
 - Gaussian Naive Bayes
 
-The original study found logistic regression to offer the strongest balance of discrimination and interpretability, with a reported test ROC AUC of approximately **0.69**. Naive Bayes achieved the highest recall for claims (about **0.81**) but produced substantially more false positives.
+On the reproducible held-out split, the MLP produced the highest ROC AUC (**0.692**), narrowly ahead of logistic regression (**0.690**). Logistic regression remains the preferred portfolio model because it offers nearly identical discrimination with substantially stronger interpretability. Naive Bayes achieved the highest claim recall (**0.790**) but produced substantially more false positives.
 
 ## Repository structure
 
@@ -26,7 +26,7 @@ portfolio/insurance-claim-prediction/
 └── .gitignore
 ```
 
-The dataset is not committed because it was not included in the original archive. Place the course dataset at `data/dataSetJune2025.csv` before rendering the analysis.
+The course dataset is included at `data/dataSetJune2025.csv`, so the analysis can be rendered immediately after installing the dependencies.
 
 ## Reproduce the analysis
 
@@ -53,7 +53,9 @@ The portfolio version improves the original notebook in several ways:
 ## Main findings
 
 - Claim occurrence is associated with driver, vehicle, occupation, coverage, and geographic-density variables.
-- Logistic regression produced the best reported ROC AUC and remained directly interpretable.
+- The MLP produced the highest ROC AUC (0.692), only 0.002 above logistic regression (0.690).
+- Logistic regression achieved 0.637 accuracy, 0.660 recall, and a 0.643 F1 score while remaining directly interpretable.
+- Naive Bayes maximised recall (0.790), illustrating the trade-off between detecting claims and generating false positives.
 - Older and retired policyholders were associated with lower predicted claim risk in the fitted logistic model.
 - Male drivers, unemployed policyholders, type-E vehicles, and higher-density areas were associated with higher predicted risk.
 - Moderate overall performance suggests that richer behavioural and claims-history features would be needed for production use.

@@ -225,7 +225,7 @@ for name, (estimator, parameter_grid) in model_specs.items():
     })
 
 results = pd.DataFrame(rows).sort_values("roc_auc", ascending=False)
-results.style.format({column: "{:.3f}" for column in results.columns if column != "model"})
+results.round(3)
 ```
 
 ```{python}
@@ -248,7 +248,7 @@ plt.show()
 
 ## Logistic-regression interpretation
 
-The original study selected logistic regression because it combined the highest reported ROC AUC (approximately 0.69) with straightforward interpretation. Coefficients below are associations in this model, not causal effects.
+The reproducible split places the MLP narrowly first by ROC AUC, but logistic regression is within approximately 0.002 AUC while offering much stronger interpretability. Coefficients below are associations in this model, not causal effects.
 
 ```{python}
 logistic_pipeline = fitted_models["Logistic regression"]
@@ -273,7 +273,7 @@ top_coefficients[["feature", "coefficient", "odds_ratio"]]
 
 ## Conclusions
 
-The original results indicate that logistic regression is the best portfolio candidate: it delivers moderate discrimination while remaining transparent enough to discuss individual risk factors. Naive Bayes is useful when missing a true claim is especially costly, because it produced stronger recall at the expense of many false positives.
+The verified results place the MLP narrowly first by ROC AUC (0.692 versus 0.690 for logistic regression). Logistic regression is still the best portfolio candidate: it delivers virtually identical discrimination while remaining transparent enough to discuss individual risk factors. Naive Bayes is useful when missing a true claim is especially costly, because it produced 0.790 recall at the expense of many false positives.
 
 Performance remains too modest for direct operational use. Future work should add driving behaviour, prior claim history, exposure duration, mileage, and richer vehicle information; use repeated or nested cross-validation; calibrate predicted probabilities; select thresholds based on business costs; and assess fairness across protected groups.
 
