@@ -1,0 +1,285 @@
+---
+title: "Insurance Claim Prediction"
+subtitle: "Interpretable classification for automobile insurance risk"
+author: "Yassine Zeamari"
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-tools: true
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+  echo: true
+jupyter: python3
+---
+
+## Business question
+
+Can policyholder, vehicle, and geographic characteristics predict whether an automobile insurance policy will generate a claim during its coverage period?
+
+The binary target is `claimNumbMD`: `1` indicates at least one claim and `0` indicates no claim. The goal is not only predictive performance, but also an interpretable view of the factors associated with risk.
+
+## Setup and data
+
+```{python}
+from pathlib import Path
+import warnings
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from scipy.stats import chi2_contingency
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    RocCurveDisplay,
+)
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
+from sklearn.tree import DecisionTreeClassifier
+
+warnings.filterwarnings("ignore", category=FutureWarning)
+sns.set_theme(style="whitegrid")
+RANDOM_STATE = 123
+TARGET = "claimNumbMD"
+DATA_PATH = Path("data/dataSetJune2025.csv")
+
+if not DATA_PATH.exists():
+    raise FileNotFoundError(
+        f"Dataset not found at {DATA_PATH}. See README.md for setup instructions."
+    )
+
+df = pd.read_csv(DATA_PATH)
+print(f"Rows: {len(df):,} | Columns: {df.shape[1]}")
+df.head()
+```
+
+## Data quality and exploration
+
+```{python}
+if TARGET not in df.columns:
+    raise ValueError(f"Expected target column '{TARGET}'. Found: {list(df.columns)}")
+
+quality = pd.DataFrame({
+    "dtype": df.dtypes.astype(str),
+    "missing": df.isna().sum(),
+    "unique": df.nunique(dropna=False),
+})
+quality
+```
+
+The original analysis identified 21 exact duplicate rows and no missing values. Exact duplicates are removed because no policy or customer identifier is available to establish that they represent distinct observations.
+
+```{python}
+duplicates = int(df.duplicated().sum())
+df = df.drop_duplicates().copy()
+print(f"Removed {duplicates} exact duplicates; {len(df):,} rows remain.")
+print(df[TARGET].value_counts(normalize=True).rename("share"))
+```
+
+```{python}
+numeric_features = [
+    column for column in ["age", "nYears", "carVal", "density"]
+    if column in df.columns
+]
+categorical_features = [
+    column for column in ["uwYear", "gender", "carType", "carCat", "job", "cover"]
+    if column in df.columns
+]
+
+df[numeric_features].hist(figsize=(10, 7), bins=30)
+plt.suptitle("Numeric feature distributions", y=1.02)
+plt.tight_layout()
+plt.show()
+```
+
+`carVal` is positive and right-skewed, so a square-root transformation is applied inside the modelling pipeline. Keeping this operation in the pipeline ensures it is applied consistently to training and test data.
+
+```{python}
+fig, ax = plt.subplots(figsize=(7, 5))
+sns.heatmap(df[numeric_features].corr(), annot=True, cmap="coolwarm", center=0, ax=ax)
+ax.set_title("Pearson correlation among numeric features")
+plt.show()
+```
+
+```{python}
+association_rows = []
+for column in categorical_features:
+    table = pd.crosstab(df[column], df[TARGET])
+    chi2, p_value, dof, _ = chi2_contingency(table)
+    association_rows.append({"feature": column, "chi2": chi2, "dof": dof, "p_value": p_value})
+
+pd.DataFrame(association_rows).sort_values("p_value")
+```
+
+The original report found statistically significant associations between the target and each tested categorical feature. Statistical significance does not by itself imply a large or causal effect, so predictive evaluation is performed on held-out data.
+
+## Leakage-safe preprocessing
+
+The split happens before preprocessing. Imputation, scaling, transformation, and one-hot encoding are learned exclusively from the training set.
+
+```{python}
+X = df.drop(columns=TARGET)
+y = df[TARGET].astype(int)
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.30,
+    random_state=RANDOM_STATE,
+    stratify=y,
+)
+
+sqrt_features = [column for column in ["carVal"] if column in numeric_features]
+regular_numeric = [column for column in numeric_features if column not in sqrt_features]
+
+numeric_pipeline = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler()),
+])
+sqrt_pipeline = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("sqrt", FunctionTransformer(np.sqrt, feature_names_out="one-to-one")),
+    ("scaler", StandardScaler()),
+])
+categorical_pipeline = Pipeline([
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    ("one_hot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+])
+
+transformers = []
+if regular_numeric:
+    transformers.append(("numeric", numeric_pipeline, regular_numeric))
+if sqrt_features:
+    transformers.append(("sqrt_numeric", sqrt_pipeline, sqrt_features))
+if categorical_features:
+    transformers.append(("categorical", categorical_pipeline, categorical_features))
+
+preprocessor = ColumnTransformer(transformers=transformers, remainder="drop")
+```
+
+## Model comparison
+
+All classifiers use the same split and preprocessing. KNN and MLP are tuned with five-fold cross-validation on the training set only.
+
+```{python}
+model_specs = {
+    "Logistic regression": (
+        LogisticRegression(max_iter=2_000, random_state=RANDOM_STATE),
+        {},
+    ),
+    "Decision tree": (
+        DecisionTreeClassifier(random_state=RANDOM_STATE),
+        {"model__max_depth": [3, 5, 8, None], "model__min_samples_leaf": [1, 10, 30]},
+    ),
+    "K-nearest neighbours": (
+        KNeighborsClassifier(),
+        {"model__n_neighbors": [5, 11, 19]},
+    ),
+    "Multilayer perceptron": (
+        MLPClassifier(max_iter=500, early_stopping=True, random_state=RANDOM_STATE),
+        {"model__hidden_layer_sizes": [(50,), (100,), (50, 50)], "model__alpha": [0.0001, 0.001]},
+    ),
+    "Gaussian Naive Bayes": (GaussianNB(), {}),
+}
+
+fitted_models = {}
+rows = []
+
+for name, (estimator, parameter_grid) in model_specs.items():
+    pipeline = Pipeline([("preprocess", preprocessor), ("model", estimator)])
+    if parameter_grid:
+        fitted = GridSearchCV(
+            pipeline,
+            parameter_grid,
+            cv=5,
+            scoring="roc_auc",
+            n_jobs=-1,
+        ).fit(X_train, y_train)
+    else:
+        fitted = pipeline.fit(X_train, y_train)
+
+    predictions = fitted.predict(X_test)
+    probabilities = fitted.predict_proba(X_test)[:, 1]
+    fitted_models[name] = fitted
+    rows.append({
+        "model": name,
+        "accuracy": accuracy_score(y_test, predictions),
+        "precision": precision_score(y_test, predictions, zero_division=0),
+        "recall": recall_score(y_test, predictions, zero_division=0),
+        "f1": f1_score(y_test, predictions, zero_division=0),
+        "roc_auc": roc_auc_score(y_test, probabilities),
+    })
+
+results = pd.DataFrame(rows).sort_values("roc_auc", ascending=False)
+results.style.format({column: "{:.3f}" for column in results.columns if column != "model"})
+```
+
+```{python}
+fig, ax = plt.subplots(figsize=(8, 6))
+for name, fitted in fitted_models.items():
+    probabilities = fitted.predict_proba(X_test)[:, 1]
+    RocCurveDisplay.from_predictions(y_test, probabilities, name=name, ax=ax)
+ax.plot([0, 1], [0, 1], "--", color="grey")
+ax.set_title("Held-out ROC curves")
+plt.show()
+```
+
+```{python}
+best_name = results.iloc[0]["model"]
+best_model = fitted_models[best_name]
+ConfusionMatrixDisplay.from_estimator(best_model, X_test, y_test, cmap="Blues")
+plt.title(f"Confusion matrix — {best_name}")
+plt.show()
+```
+
+## Logistic-regression interpretation
+
+The original study selected logistic regression because it combined the highest reported ROC AUC (approximately 0.69) with straightforward interpretation. Coefficients below are associations in this model, not causal effects.
+
+```{python}
+logistic_pipeline = fitted_models["Logistic regression"]
+feature_names = logistic_pipeline.named_steps["preprocess"].get_feature_names_out()
+coefficients = pd.DataFrame({
+    "feature": feature_names,
+    "coefficient": logistic_pipeline.named_steps["model"].coef_[0],
+})
+coefficients["odds_ratio"] = np.exp(coefficients["coefficient"])
+coefficients["absolute_coefficient"] = coefficients["coefficient"].abs()
+top_coefficients = coefficients.nlargest(15, "absolute_coefficient").sort_values("coefficient")
+
+fig, ax = plt.subplots(figsize=(9, 6))
+sns.barplot(data=top_coefficients, x="coefficient", y="feature", hue="coefficient", palette="coolwarm", legend=False, ax=ax)
+ax.axvline(0, color="black", linewidth=1)
+ax.set_title("Most influential logistic-regression coefficients")
+plt.tight_layout()
+plt.show()
+
+top_coefficients[["feature", "coefficient", "odds_ratio"]]
+```
+
+## Conclusions
+
+The original results indicate that logistic regression is the best portfolio candidate: it delivers moderate discrimination while remaining transparent enough to discuss individual risk factors. Naive Bayes is useful when missing a true claim is especially costly, because it produced stronger recall at the expense of many false positives.
+
+Performance remains too modest for direct operational use. Future work should add driving behaviour, prior claim history, exposure duration, mileage, and richer vehicle information; use repeated or nested cross-validation; calibrate predicted probabilities; select thresholds based on business costs; and assess fairness across protected groups.
+
+## Limitations and responsible use
+
+- The dataset is course material and is not distributed in this repository.
+- The analysis demonstrates association and prediction, not causality.
+- A single held-out split can be noisy; repeated cross-validation would improve uncertainty estimates.
+- Sensitive attributes require fairness, legal, and governance review before any insurance use.
