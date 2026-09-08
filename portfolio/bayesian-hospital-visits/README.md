@@ -43,7 +43,7 @@ The hospital effect \(v_g\) captures unobserved variation between hospitals.
 ```text
 portfolio/bayesian-hospital-visits/
 ├── data/
-│   └── README.md
+│   ├── HospitalVisits.txt\n│   └── README.md
 ├── README.md
 ├── analysis.R
 ├── install_packages.R
@@ -52,7 +52,7 @@ portfolio/bayesian-hospital-visits/
 
 - `report.pdf` is the original group report with student identification numbers removed for privacy.
 - `analysis.R` preserves the original analysis. Only the dataset path and one obvious statement-order runtime error were corrected.
-- The course dataset is not present in the original archive and is therefore not redistributed.
+- `data/HospitalVisits.txt` contains 919 de-identified observations from 30 hospitals and is published with the user's explicit authorization.
 
 ## Reproduce the analysis
 
