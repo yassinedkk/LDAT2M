@@ -16,6 +16,12 @@ The game is represented as a Markov Decision Process (MDP) with 15 board squares
 
 The objective is to select the die that minimizes the expected number of turns needed to reach the goal from every square.
 
+## Board layout
+
+![Snakes and Ladders board with slow and fast lanes](assets/board-layout.png)
+
+*The board starts at square 1 and splits after square 3. The slow lane follows squares 4 to 10, while the fast lane follows squares 11 to 14; both paths end at square 15.*
+
 ## How the project works
 
 ```mermaid
@@ -103,6 +109,8 @@ markovDecision(layout, circle)
 
 ```text
 portfolio/markov-decision-processes/
+├── assets/
+│   └── board-layout.png
 ├── README.md
 ├── requirements.txt
 ├── report.pdf
