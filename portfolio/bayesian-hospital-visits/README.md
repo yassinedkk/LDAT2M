@@ -28,15 +28,15 @@ The project develops and evaluates hierarchical Poisson regression models using:
 
 ## Model
 
-For patient \(i\) in hospital \(g(i)\):
+For patient $i$ in hospital $g(i)$:
 
-\[
+$
 Y_i \mid \mu_i \sim \operatorname{Poisson}(\mu_i),
 \qquad
-\mu_i = v_{g(i)}\exp(\beta_0 + \beta_1\,\text{age}_i + \beta_2\,\text{chronic}_i).
-\]
+\mu_i = v_{g(i)}\exp\!\left(\beta_0 + \beta_1\,\mathrm{age}_i + \beta_2\,\mathrm{chronic}_i\right).
+$
 
-The hospital effect \(v_g\) captures unobserved variation between hospitals.
+The hospital effect $v_g$ captures unobserved variation between hospitals.
 
 ## Repository structure
 
