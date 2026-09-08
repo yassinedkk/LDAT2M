@@ -1,16 +1,10 @@
-# Data
+# Hospital Visits Dataset
 
-The analysis expects the course dataset at:
+`HospitalVisits.txt` contains 919 de-identified observations from 30 hospitals and four variables:
 
-`data/HospitalVisits.txt`
+- `y`: number of hospital visits during the two-year observation period;
+- `age`: patient age, ranging from 17 to 83;
+- `chronic`: chronic-disease indicator (0 or 1);
+- `hospital`: hospital identifier (1 to 30).
 
-The original project archive does not contain this file, so it is not redistributed here.
-
-Expected variables:
-
-- `y`: number of hospital visits during the observation period;
-- `age`: patient age;
-- `chronic`: chronic-disease indicator;
-- `hospital`: hospital identifier (30 hospitals).
-
-Place an authorised copy of the tab-delimited dataset in this directory before running `analysis.R`.
+The tab-delimited dataset was supplied for the LSTAT2130 academic project and is published here with the user's explicit authorization. It contains no patient names, contact information, addresses, or individual identifiers.
