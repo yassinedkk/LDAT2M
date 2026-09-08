@@ -31,7 +31,7 @@ The project develops and evaluates hierarchical Poisson regression models using:
 For patient $i$ in hospital $g(i)$:
 
 ```math
-Y_i \mid \mu_i \sim \operatorname{Poisson}(\mu_i),
+Y_i \mid \mu_i \sim \mathrm{Poisson}(\mu_i),
 \qquad
 \mu_i = v_{g(i)}\exp\!\left(\beta_0 + \beta_1\,\mathrm{age}_i + \beta_2\,\mathrm{chronic}_i\right).
 ```
@@ -43,7 +43,8 @@ The hospital effect $v_g$ captures unobserved variation between hospitals.
 ```text
 portfolio/bayesian-hospital-visits/
 ├── data/
-│   ├── HospitalVisits.txt\n│   └── README.md
+│   ├── HospitalVisits.txt
+│   └── README.md
 ├── README.md
 ├── analysis.R
 ├── install_packages.R
