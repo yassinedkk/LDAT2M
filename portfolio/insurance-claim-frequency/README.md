@@ -29,7 +29,7 @@ portfolio/insurance-claim-frequency/
 ├── README.md
 ├── analysis.ipynb
 ├── data/
-│   └── train_contrats_anonymized.csv
+│   └── train_contrats_anonymized.csv.gz
 ├── report.pdf
 └── requirements.txt
 ```
