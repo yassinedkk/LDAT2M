@@ -34,7 +34,7 @@ portfolio/insurance-claim-frequency/
 └── requirements.txt
 ```
 
-The public dataset excludes the original contract number, vehicle-registration identifier, and exported row index. The report has also been stripped of the student number.
+The public dataset is stored as `train_contrats_anonymized.csv.gz` and excludes the original contract number, vehicle-registration identifier, and exported row index. The report has also been stripped of the student number.
 
 ## Reproduce
 
@@ -42,6 +42,7 @@ The public dataset excludes the original contract number, vehicle-registration i
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+gzip -dk data/train_contrats_anonymized.csv.gz
 jupyter lab analysis.ipynb
 ```
 
