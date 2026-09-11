@@ -1,0 +1,410 @@
+---
+title: "Projet LSTAT2110 -- Analyse de données"
+author: Yassine Zeamari
+output:
+  pdf_document:
+    number_sections: yes
+fontsize: 9pt 
+geometry: margin=1cm
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig.crop = FALSE)
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+
+```
+
+# Introduction
+
+Dans ce rapport, nous allons mener une analyse approfondie d'un jeu de données portant sur les éléments chimiques et leurs propriétés physico-chimiques fondamentales. Cette étude vise à explorer et comprendre les relations entre différentes caractéristiques des éléments du tableau périodique, notamment leur masse atomique, leur rayon atomique, leur densité, et leurs points de fusion et d'ébullition.
+
+Ce travail a plusieurs objectifs spécifiques :
+
+Comprendre la structure des données 
+
+Examiner les regroupements d’éléments
+
+Tester l’impact des variables qualitatives.
+
+# Présentation des données:
+
+Le jeu de données elements(source:"http://www.elementschimiques.fr/?fr") contient des informations sur 50 éléments chimiques les éléments les plus courants, avec les variables suivantes:
+
+AtomicMass : la masse atomique en g/mol(variable  continue)
+
+AtomicRadius : le rayon atomique en picomètres (pm)(variable  continue)
+
+Density : la densité en g/cm³(variable  continue)
+
+MeltingPoint : le point de fusion en degrés Celsius(variable  continue)
+
+BoilingPoint : le point d'ébullition en degrés Celsius(variable  continue)
+
+MolarHeatCapacity : Capacité calorifique molaire, en J/(mol·K), représentant la quantité de chaleur nécessaire pour élever d'un degré Kelvin la       température d'une mole de substance.(variable  continue)
+
+State :l'état physique de l'élément à température ambiante : solide, liquide, gaz(variable  qualitative)
+
+
+```{r}
+
+elements <- read.csv("data/elements.csv")
+rownames(elements) <- elements$X 
+elements$X <- NULL
+
+elements$AtomicRadius=as.numeric(elements$AtomicRadius)
+```
+
+# Analyse Descriptive
+
+```{r}
+
+summary(elements)
+```
+AtomicMass : La masse atomique des éléments varie entre 1.008 et 118.710
+
+AtomicRadius : Le rayon atomique s’étend de 31.0 à 265.0, avec une médiane de 147.0, ce qui montre des variations importantes 
+
+Density : La densité des éléments est également très variée, allant de 0.00009 pour les gaz légers jusqu'à 12.41 pour certains solides lourds. La
+moyenne est de 4.715, ce qui indique une majorité de valeurs relativement faibles.
+
+MeltingPoint et BoilingPoint :Ces points varient considérablement, de valeurs très basses (0.95 et 4.22 respectivement) pour des éléments à faible température de fusion et d'ébullition, jusqu'à 3800 et 5017 respectivement pour les éléments avec les plus hautes températures de changement d'état.
+
+MolarHeatCapacity : La capacité thermique molaire des éléments varie également, allant de 5.193 à 75.690
+
+La majorité des éléments  sont des solides (40), avec quelques gaz (9) et un seul liquide
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(cowplot)
+
+variables_continues <- c("AtomicMass", "AtomicRadius", "Density","MeltingPoint","BoilingPoint","MolarHeatCapacity") 
+elements_moyennes <- elements %>%
+  group_by(State) %>%
+  summarise(across(all_of(variables_continues), mean, na.rm = TRUE))
+
+
+list_plots <- list()
+
+for (var in variables_continues) {
+  plot <- ggplot(elements_moyennes, aes_string(x = "State", y = var)) +
+    geom_bar(stat = "identity", fill = "skyblue") +
+    theme_minimal() +
+    labs(title = paste("Moyenne de", var, "par État"), x = "État", y = var) +
+    theme(legend.position = "none")
+
+  list_plots[[var]] <- plot
+}
+
+plot_grid(plotlist = list_plots, ncol = 2)
+```
+
+
+Les éléments solides ont en moyenne une masse atomique et  un rayon atomique ,densité plus élevée que les gaz et les liquides,Les solides affichent des points de fusion et des points d'ébullition beaucoup plus élevés.
+
+Les liquides ont des valeurs de capacité calorifique molaire supérieures en moyenne que les gaz et les solides. 
+
+Les gaz ont des points de fusion et des points d'ébullition très bas, parfois proches de zéro,Les gaz ont une densité très faible.
+```{r}
+suppressPackageStartupMessages(require(corrplot))
+corrplot(cor(elements[,1:6]), tl.col = "black", order = "hclust", addCoef.col = "darkgrey")
+
+```
+
+Le tableau de corrélation montre des corrélations positives élevées entre BoilingPoint et MeltingPoint
+
+Density présente également des corrélations  élevées avec des variables comme AtomicMass
+
+
+Certaines propriétés semblent relativement indépendantes des autres comme Density et MolarHeatCapacity 
+
+# Analyse en composantes principales
+
+
+```{r}
+
+library(FactoMineR) 
+
+res<-PCA(elements[,1:6], graph=FALSE)
+
+```
+## les Valeurs propres
+
+Les valeurs propres  dans une analyse en composantes principales représentent la quantité de variance expliquée par chaque composante principale :
+
+```{r}
+res$eig
+```
+
+on retient les composantes principales dont la valeur propre est supérieure à 1. Cela signifie que les deux premières composantes principales, avec des valeurs propres respectivement de 3.22 et 1.459, expliquent ensemble 78.11 % de la variabilité totale des données.ce qui peut également se représenter par:
+
+
+```{r,fig.pos="!h", out.width="75%", fig.align="center"}
+barplot(res$eig[,"eigenvalue"], xlab = "Composantes", ylab="Valeurs propres")
+abline(h = 1, lty = "dashed")
+```
+
+cette approche réduit la dimensionnalité tout en conservant une part majoritaire de l'information, facilitant ainsi l’interprétation visuelle et analytique des résultats de l’ACP.
+
+## Analyse des variables
+Les coordonnées des variables sur deux premières dimensions montrent leur contribution aux composantes principales :
+```{r}
+round(res$var$coord[,1:2], 4)
+```
+* Dimension 1 : est fortement influencée par les variables Density, BoilingPoint, et MeltingPoint, qui ont toutes des coefficients élevés. Cela suggère    que cette dimension pourrait être interprétée comme représentant un axe lié aux caractéristiques physiques de l'élément.aussi les valeurs dans votre     tableau représentent les corrélations entre les variables originales et les composantes principale.
+
+* Dimension 2:est dominée par la MolarHeatCapacity (0.8474), ce qui indique que cette composante pourrait refléter un axe davantage lié à la capacité      thermique.
+
+maintenant on vérifie s'il y a des variables sont mal représentées dans les deux premières composantes :
+
+```{r}
+round(sort(rowSums(res$var$cos2[,1:2])), digits = 3)
+```
+toutes les valeurs sont supérieure à 0.5 indiquent que les variables sont bien représentées par les deux premières composantes principales.
+
+*Le cercle des corrélations pour la première et deuxième composantes :
+
+```{r}
+plot.PCA(res, choix = "var", axes=c(1,2))
+```
+
+* On voit bien que la variable AtomicRadius a une flèche relativement courte par rapport aux autres variables,elles sont toutes bien représentées dans les deux premières composantes.
+
+* Un groupe de variables fortement corrélées positivement entre elles : AtomicMass, AtomicRadius, Density,  BoilingPoint et MeltingPoint Ces variables physiques évoluent ensemble : quand l'une augmente, les autres aussi.
+
+* MolarHeatCapacity est presque perpendiculaire à ce groupe, indiquant qu'elle est indépandante ou peu corrélée avec ces propriétés.
+
+## Analyse des individus
+
+```{r}
+round(sort(rowSums(res$ind$cos2[,1:2])), digits = 3)
+```
+
+Les valeurs de cos2 des individus représentent la qualité de leur représentation sur les deux premières dimensions de l'ACP
+
+*Faible qualité de projection : Des éléments Calcium, Arsenic ,Potassium,Gallium,Scandium,Strontium ,Zinc ,Rubidium ,Germanium,Sodium ,Krypton  ,Selenium.et la carte des individus confirme cela on voit  les éléments avec une couleur plus proche du vert foncé (comme Fluorine, Chlorine, et Boron) ont une bonne qualité de représentation sur le plan ,Ceux avec des cos2 faibles  sont moins bien représentés dans ce plan ,Il faut donc s'abstenir d'interpréter ces pays sur la carte des individus.
+
+
+
+```{r}
+library(factoextra)
+fviz_pca_ind(res, 
+             gradient.cols = c("darkorange", "darkgreen"), 
+             col.ind = "cos2", 
+             repel = TRUE,         
+             label = "ind",       
+             pointsize = 2,        
+             labelsize = 3         
+)
+```
+
+
+ On peut voir que certains éléments se regroupent en différents clusters. Il serait intéressant d'ajouter une variable catégorielle, comme l'état physique (solide, liquide, gaz) des éléments, pour voir si cette caractéristique permet d'expliquer la répartition des points dans le plan principal
+
+```{r}
+res <- PCA(elements, quali.sup = 7, graph = FALSE) 
+elements$State <- as.factor(elements$State)
+
+fviz_pca_ind(res,
+             habillage = elements$State,
+             palette = "jco",
+             addEllipses = TRUE, 
+             ellipse.level = 0.95,
+             
+             repel = TRUE,          
+             label.size = 3,         
+             mean.point = FALSE,     
+             ggtheme = theme_minimal(),
+             
+             labelsize = 3,          
+             pointsize = 2,          
+      
+             max.overlaps = Inf)     
+
+
+```
+
+Grâce au cercle des corrélations et la carte des individus enrichies :
+
+*les atomes dans l'état solide  ont tendance à avoir une masse atomique élevée, un grand rayon atomique et une forte densité, ainsi qu'un point d'ébullition et un point de fusion élevés.
+
+*Les atomes dans l'état gazeux  ont généralement une masse atomique et un rayon atomique plus faibles, ainsi qu'une densité plus faible.
+
+*Les atomes à l'état liquide selon la carte ont une capacité calorifique plus élevée,mais il est difficile de généraliser à partir d'une seule observation, comme il n'y a qu'un seul atome à l'état liquide, sa position pourrait être influencée par ses caractéristiques spécifiques, et non exclusivement par son état physique.
+
+
+# Analyse discriminante linéaire
+
+l’analyse discriminante permet de modéliser la relation entre la variable catégorielle ( l'état physique : solide, liquide, gaz) et les autres variables continues,et prédire ou confirmer l’appartenance des observations à des groupes en fonction de caractéristiques mesurées.
+
+```{r}
+library(MASS)
+sat.lda <- lda( State~ ., 
+                data = elements, 
+                method = "mle") 
+sat.lda
+```
+.Les probabilités a priori des groupes montrent la proportion d’observations dans chaque catégorie gaz(18%) et solide(80%) et liquide(2%),cela Cela reflète un déséquilibre marqué dans les données, avec une grande majorité d’observations dans la classe "Solide".
+
+.Les coefficients des discriminants linéaires (LD1, LD2) montrent l’importance relative de chaque variable pour discriminer les groupes:
+
+- LD1 : La densité, la capacité thermique molaire semblent être les plus importants,et LD1 explique 78,21% de la séparation entre les groupes.
+
+- LD2 : La capacité thermique molaireet la densité sont également importants,LD2 explique les 21,79% restants
+
+```{r}
+ldahist(data = predict(sat.lda)$x[,1], g = elements$State)
+```
+
+Les distributions des scores LD1 pour les groupes Gaz et Solide semblent bien séparées, suggérant que l'axe discriminant permet de distinguer efficacement ces deux catégories.
+Pour Liquide, sa distribution est très limitée et ne reflète pas une véritable variabilité.
+
+```{r}
+ldahist(data = predict(sat.lda)$x[,2], g = elements$State)
+```
+
+Sur l'axe LD2, on remarque que les distributions des groupes ne sont pas aussi bien séparées que sur l'axe LD1.
+
+
+On peut mesurer la qualité de la règle de discrimination grâce à la proportion d'individus bien classés.
+```{r}
+iris.pred <- predict(sat.lda, newdata = elements[,1:6])$class
+validation <- table(elements[,7],iris.pred)
+validation
+proportion <- sum(diag(validation))/nrow(elements)
+proportion
+```
+a proportion de prédictions correctes est  94%,C'est une très bonne performance globale du modèle.
+
+Il y a 3 erreurs de classification, toutes concernant des solides classés à tort comme des gaz,Aucune erreur n'implique la classe "Liquide". 
+
+on utilise le modèle d'analyse discriminante linéaire  pour prédire la classe (gaz, liquide ou solide) d'un nouveau élément (mercure) en se basant sur ses propriétés physiques et thermodynamiques. l'objectif est de vérifier si le modèle est capable de correctement classifier cet élément comme un liquide.le mercure est un élément exceptionnel, étant le seul métal liquide à température ambiante.
+```{r}
+mercury <- data.frame(
+    AtomicMass = 200.59,
+    AtomicRadius = 150,  
+    Density = 13.534,
+    MeltingPoint = -38.83,
+    BoilingPoint = 356.73,
+    MolarHeatCapacity = 27.983
+)
+ predict(sat.lda, mercury)$class
+
+```
+Le modèle LDA a classé le mercure comme solide, alors qu'il est en réalité liquide à température ambiante,cette erreur est principalement due au faible nombre de données disponibles pour la catégorie Liquide dans les donnée(en géneral il n'existe que deux éléments chimiques naturellement liquides à température ambiante (25°C) : le mercure (Hg) et le brome (Br)).
+
+# Analyse en correspondance 
+L'objectif est d'explorer les relations entre les modalités des variables qualitatives et de les représenter graphiquement dans un espace de faible dimension.
+d'abord , il faudra discrétiser  toutes ces variables pour transformer les données quantitatives en classes qualitatives.
+on les transforme en utilisant  des intervalles (par quantiles).
+```{r}
+variables_to_discretize <- c("AtomicMass", "AtomicRadius", "Density", "MeltingPoint", "BoilingPoint", "MolarHeatCapacity")
+
+for (var in variables_to_discretize) {
+  elements[[paste0(var, "Cat")]] <- cut(elements[[var]],
+                                        breaks = c(min(elements[[var]], na.rm = TRUE),
+                                                   quantile(elements[[var]], probs = c(0.33, 0.66), na.rm = TRUE),
+                                                   max(elements[[var]], na.rm = TRUE)),
+                                        labels = c("Low", "Medium", "High"),
+                                        include.lowest = TRUE)
+
+}
+ res_mca <- MCA(elements[, 7:13], graph = FALSE)
+```
+
+
+## Les valeurs propres
+
+Dans l'Analyse des Correspondances Multiples (ACM), il est courant que le pourcentage d'inertie expliqué par chaque axe soit relativement faible, surtout lorsque le nombre de variables et de modalités est élevé. Cependant, comme vous l'avez souligné, l'objectif principal de l'ACM est d'explorer la proximité des modalités et des individus ,cette proximité reste très informative, même si l'inertie expliquée est faible,et pour cela on représente les résultats de l'ACM sur les deux premiere(1 et 2) plan factoriel, expliqueront un pourcentage faible de l'inertie des données,46%.
+```{r}
+
+round(res_mca$eig, digits = 3)
+
+```
+
+
+
+## Analyse des variables catégories
+BoilingPointCat_High ,MeltingPointCat_High,BoilingPointCat_Medium, AtomicRadiusCat_Low, et MeltingPointCat_Low ces variables ont des contributions significatives aux deux premières dimensions, alors que les variables Liquid ,MolarHeatCapacityCat_Low,DensityCat_Medium MolarHeatCapacityCat_High AtomicMassCat_High  AtomicMassCat_Medium MolarHeatCapacityCat_Medium  DensityCat_High AtomicRadiusCat_High  AtomicMassCat_Low  ont une contribution faible elles pourraient être ignorées pour simplifier l’interprétation.
+
+```{r}
+round(sort(rowSums(res_mca$var$cos2[,1:2])), digits = 3)
+```
+## Analyse des individus
+```{r}
+round(sort(rowSums(res_mca$ind$cos2[,1:2])), digits = 3)
+```
+Les éléments  Hydrogen, Nitrogen, Fluorine , Chlorine ,  Oxygen ,Zinc   Helium   Neon avec des valeurs proches de 1 sont bien représentés(la modalité) dans le plan.
+Les éléments avec des valeurs faibles sont mal représentés dans le plan (Selenium,Silicon,Bromine,Lithium Potassium et Strontium...)
+## Interprétation des axes 
+```{r}
+round(res_mca$var$contrib[,c(1,2)], digits = 3)
+```
+
+Les modalités les plus contributrices (>10%) sur dim1 :
+
+Gas (12.206)
+AtomicRadiusCat_Low (10.612)
+MeltingPointCat_Low (11.310)
+BoilingPointCat_Low (10.357)
+
+Ces modalités indiquent que la première dimension semble capturer des variations liées à l'état gaz  et à des propriétés atomiques telles que le rayon atomique, le point de fusion et le point d'ébullition faibles.
+
+Les modalités les plus contributrices (>10%) sur dim2 :
+
+BoilingPointCat_Medium (20.046)
+MeltingPointCat_Medium (16.395)
+AtomicRadiusCat_Medium (16.284)
+BoilingPointCat_High (14.821)
+MeltingPointCat_High(12.999)
+
+La deuxième dimension semble être fortement influencée par les propriétés modérées et élevées des points de fusion, d’ébullition et du rayon atomique.
+
+
+```{r}
+fviz_mca_biplot(res_mca, 
+                repel = TRUE, 
+                cex = 0.7, 
+                col.ind = "cos2", 
+                col.var = "contrib", 
+                gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+
+```
+
+
+
+
+nous analysons les proximités observées sur le graphique:
+
+**Éléments associés à des points de fusion et d'ébullition élevés**
+
+Les éléments proches de ces catégories incluent Niobium, Yttrium, et Zirconium ,Molybdenum....,Ces éléments possèdent des propriétés physiques indiquant des points de fusion et d'ébullition élevés.
+
+**Éléments proches de AtomicRadiusCat_High** 
+
+ Les éléments Vanadium, Titanium, Born, et Scandium..... se trouvent proches de cette catégorie.
+
+ Ces éléments  ont de grands rayons atomiques en raison de leur position à gauche et en bas du tableau périodique.
+ 
+ **Éléments solides associés à MeltingPointCat_Low BoillingPointCat_low Gas AtomicRadiusCat_Low DensityCat_Low**
+ 
+ Les éléments proches, comme Chlore, Fluor, Oxygène neon ....Ces éléments sont des gaz caractérisés par une faible densité atomique et un rayon petit et des points de fusion et d'ébullition faibles.
+ 
+ **Éléments proches de MeltingPointCat_medium  BoillingPointCat_medium AtomicRadiusCat_medium **
+ 
+ Les éléments proches, comme Zinc Copper Manganese Aluminum Tin...Ces éléments possèdent des propriétés physiques indiquant des points de fusion et d'ébullition modérées.
+ 
+# conclusion
+
+ce projet a exploré les relations entre les propriétés physico-chimiques des éléments chimiques à l’aide de trois analyses complémentaires : l’Analyse en Composantes Principales ,l’Analyse Discriminante Linéaire , et l’Analyse des Correspondances Multiples, Ces approches ont permis de réduire la dimensionnalité des données, Elles a révélé des associations fortes entre certaines variables continues, notamment entre la masse atomique, la densité, et les points de fusion/ébullition, elles a fourni une perspective enrichie des relations entre les groupes d'éléments et leurs catégories associées.
+
+Réponses aux objectifs initiaux :
+
+Comprendre la structure des données : Les méthodes exploratoires ont permis de clarifier les interrelations entre variables continues et qualitatives.
+
+Examiner les regroupements : Les éléments chimiques ont été regroupés de manière cohérente selon leurs propriétés physiques, confirmant des schémas bien connus de la chimie.
+
+Tester l'impact des variables qualitatives :  l’ACM ont démontré que les catégories qualitatives apportent une dimension supplémentaire pour interpréter les relations entre des données.
+
+Les analyses réalisées constituent une base solide pour des investigations futures, notamment élargir le jeu de données en intégrant des propriétés supplémentaires (énergie d’ionisation, électronégativité, etc.) pour enrichir la compréhension.
