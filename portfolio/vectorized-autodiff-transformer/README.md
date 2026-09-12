@@ -10,7 +10,40 @@ Portfolio project for **LINMA2472 — Algorithms in Data Science**. The work imp
 - Character-level transformer experiments on Tiny Shakespeare
 - Reproducible benchmark and result slides
 
-The accompanying [results presentation](results_presentation.pptx) reports substantial speed and memory improvements for vectorized reverse mode over scalar forward mode in the tested configurations, including gradient speedups from about **145× to 2,041×**. It also compares gradient descent with Newton-CG on regression and classification tasks. These are reported experimental results from the submitted project; they were not rerun during portfolio packaging.
+## Experimental results
+
+The measurements below come from the submitted [results presentation](results_presentation.pptx). They were not rerun during portfolio packaging.
+
+### Vectorized reverse-mode gradients
+
+| Task | Configuration | Parameters | Forward time | Forward memory | Reverse time | Reverse memory | Speedup |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Regression | n=32, d=16, h=16 | 272 | 3.12e-2 s | 35.21 MB | 2.15e-4 s | 0.06 MB | 145× |
+| Regression | n=64, d=32, h=32 | 1,056 | 5.44e-1 s | 521.29 MB | 2.66e-4 s | 0.21 MB | 2,041× |
+| Classification | n=32, d=16, h=16 | 304 | 5.26e-1 s | 407.35 MB | 3.26e-4 s | 0.11 MB | 1,611× |
+
+For these configurations, vectorized reverse mode reduced gradient runtime by **145× to 2,041×** and used much less memory than scalar forward mode.
+
+### Forward-over-reverse Hessian–vector products
+
+| Task | Configuration | Parameters | Forward time | RoF time | Speedup | Forward memory | RoF memory |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Regression | n=32, d=16, h=16 | 272 | 0.1244 s | 0.00044 s | 285× | 84.53 MB | 0.17 MB |
+| Regression | n=64, d=32, h=32 | 1,056 | 1.7951 s | 0.00068 s | 2,629× | 1,267.49 MB | 0.62 MB |
+| Classification | n=64, d=32, h=32 | 1,120 | 35.4565 s | 0.00099 s | 35,742× | 26,475.79 MB | 0.88 MB |
+
+The forward-over-reverse implementation produced the largest reported gain on the classification benchmark, with a **35,742×** speedup and memory use falling from **26,475.79 MB to 0.88 MB**.
+
+### Optimization after five iterations
+
+| Task | Method | Time | Final loss |
+| --- | --- | ---: | ---: |
+| Regression (n=64, d=16, h=16) | Gradient descent | 1.18 s | 1.289 |
+| Regression (n=64, d=16, h=16) | Newton-CG | 2.81 s | 0.679 |
+| Classification (n=64, d=16, h=16) | Gradient descent | 6.14 s | 1.3071 |
+| Classification (n=64, d=16, h=16) | Newton-CG | 6.61 s | 1.2650 |
+
+Newton-CG achieved a lower final loss in both experiments. The improvement was larger for regression, while the classification runtimes were close.
 
 ![Computation graph](dag.png)
 
