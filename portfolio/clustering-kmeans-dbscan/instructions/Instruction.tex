@@ -1,0 +1,164 @@
+\documentclass[]{article}
+
+\usepackage{helvet}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{xspace}
+\usepackage[usenames]{color}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{pstricks}
+\usepackage{rotating}
+\usepackage{pst-node}
+
+\definecolor{codeBlue}{rgb}{0,0,1}
+\definecolor{webred}{rgb}{0.5,0,0}
+\definecolor{codeGreen}{rgb}{0,0.5,0}
+\definecolor{codeGrey}{rgb}{0.6,0.6,0.6}
+\definecolor{webdarkblue}{rgb}{0,0,0.4}
+\definecolor{webgreen}{rgb}{0,0.3,0}
+\definecolor{webblue}{rgb}{0,0,0.8}
+\definecolor{orange}{rgb}{0.7,0.1,0.1}
+
+\usepackage{caption}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{listings}
+\lstset{
+	language=Python,
+	frame=single,
+	flexiblecolumns=true,
+	numbers=none,
+	stepnumber=1,
+	numberstyle=\ttfamily\tiny,
+	keywordstyle=\ttfamily\textcolor{blue},
+	stringstyle=\ttfamily\textcolor{red},
+	commentstyle=\ttfamily\textcolor{green},
+	breaklines=true,
+	extendedchars=true,
+	basicstyle=\ttfamily\scriptsize,
+	showstringspaces=false
+}
+
+\title{LINGI2364: Mining Patterns in Data \\ \bf Project 3: Clustering}
+\date{}
+
+\begin{document}
+	\maketitle
+	
+	\section{Context}
+	
+	Clustering is a fundamental unsupervised learning task that aims to group similar data points while keeping dissimilar points in different groups. Different clustering algorithms use different strategies and assumptions about data distribution, leading to varying performance across different dataset characteristics.
+	
+	In this project, you will implement two important clustering algorithms: \textbf{K-Means} and \textbf{DBSCAN}.
+	
+	
+	\section{Evaluation Metrics}
+	
+	Since clustering is unsupervised, we evaluate your implementations using \textbf{metrics that compare ground truth labels with predicted labels}. Two main metrics are used:
+	
+	\subsection{Primary Metric: Adjusted Rand Index (ARI)}
+	
+	The Adjusted Rand Index measures the similarity between two partitions on a scale from $-1$ to $1$:
+	
+	\begin{itemize}
+		\item \textbf{ARI = 1}: Perfect agreement (identical partitions).
+		\item \textbf{ARI = 0}: Partitions are as similar as random clustering.
+		\item \textbf{ARI < 0}: Partitions are worse than random clustering (rare).
+	\end{itemize}
+	
+	Why ARI for clustering grading?
+	
+	\begin{enumerate}
+		\item \textbf{Label permutation invariance}: Clustering can assign labels in any order. If your algorithm outputs labels [0, 0, 1, 1] and the ground truth is [1, 1, 0, 0], ARI correctly recognizes these as identical clusterings.
+		\item \textbf{Noise point handling}: ARI naturally handles noise points (label $-1$ in DBSCAN). A point marked as noise by the ground truth but assigned to a cluster (or vice versa) is correctly penalized without artificial thresholds.
+		\item \textbf{Fairness}: ARI accounts for chance agreement, so you cannot achieve a high score by random assignment.
+		\item \textbf{Standard}: ARI is a widely accepted metric in clustering literature.
+	\end{enumerate}
+	
+	\textbf{Threshold for passing}: ARI $\geq 0.70$ on test cases.
+	
+	\subsection{Secondary Metrics}
+	
+	In addition to ARI, we provide secondary metrics for context:
+	
+	\begin{itemize}
+		\item \textbf{K-Means}: Silhouette Score (0 to 1, higher is better). Measures how similar each point is to its own cluster compared to other clusters. Formula: $s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}$ where $a(i)$ is the average distance from point $i$ to other points in its cluster, and $b(i)$ is the minimum average distance from point $i$ to points in other clusters.
+		\item \textbf{DBSCAN}: Davies-Bouldin Index (lower is better). Ratio of within-cluster to between-cluster distances; measures cluster separation quality. It is defined as the average maximum ratio of within-cluster distance to between-cluster distance across all clusters.
+	\end{itemize}
+	
+	These are \textbf{informational only} and do not affect your grade, but they provide additional feedback on clustering quality.
+	
+	\section{Grading}
+	
+	Your implementation is graded:
+	
+	\begin{itemize}
+		\item \textbf{Correctness and performance of your implementation (8/20)}. Your code must:
+		\begin{itemize}
+			\item Correctly implement the algorithm (verified against ground truth).
+			\item Run within reasonable time limits on all test cases.
+		\end{itemize}
+		\item \textbf{Quality and relevance of your report, including algorithm explanation and analysis (12/20)}. Your source code will also be evaluated. Any form of hard-coding or bypassing the algorithms will result in a grade of 0.
+	\end{itemize}
+	
+	
+	\section{Report}
+	
+	You must submit a report that does not exceed 4 pages. The report should include:
+	
+	\begin{itemize}
+		\item \textbf{Algorithm Description}: A brief explanation of how you implemented the algorithm.
+		\item \textbf{Implementation Choices}: Key decisions you made (e.g., distance metric, initialization strategy for K-Means, neighbor search optimization for DBSCAN).
+		\item \textbf{Optimizations}: Any optimizations you introduced to improve performance or correctness.
+		\item \textbf{Comparison Analysis}: A brief comparison of the algorithms on datasets used in testing.
+		\item \textbf{Results and Discussion}: Presentation of your clustering results with interpretation.
+	\end{itemize}
+	
+	Your report must contain the number of your group as well as the names and NOMAs of each member.
+	
+	\section{Datasets}
+	
+	\subsection{K-Means Project Datasets}
+	
+	The K-Means project datasets are specifically designed for K-Means success:
+	
+	\begin{itemize}
+		\item \textbf{Spherical clusters}: All clusters are generated from isotropic Gaussian distributions with similar standard deviations.
+		\item \textbf{Well-separated}: Clusters are far enough apart that K-Means can reliably assign points to correct clusters.
+		\item \textbf{Variable difficulty}: Datasets range from 2D (easy to visualize) to 10D (testing scalability).
+		\item \textbf{Expected performance}: A correct K-Means implementation should achieve ARI $\approx 0.90$ or higher.
+	\end{itemize}
+	
+	\subsection{DBSCAN Project Datasets}
+	
+	The DBSCAN project datasets are designed to challenge centroid-based approaches and showcase DBSCAN strengths:
+	
+	\begin{itemize}
+		\item \textbf{Non-convex shapes}: Concentric circles, moons, and other shapes that K-Means cannot partition correctly.
+		\item \textbf{Varying density}: Some clusters are tight (high density), others are sparse (low density).
+		\item \textbf{Noise and outliers}: Several datasets contain explicit noise points that should be labeled as $-1$.
+		\item \textbf{Parameter sensitivity}: Different datasets require different $(\epsilon, \texttt{MinPts})$ pairs for optimal clustering.
+		\item \textbf{Expected performance}: A correct DBSCAN implementation with proper parameter tuning should achieve ARI $\geq 0.70$ on visible test cases.
+	\end{itemize}
+	
+	We strongly encourage you to test locally before submitting on INGInious. Some test cases are hidden on INGInious but visible ones are part of the grading process.
+	
+	\section{Important Tips}
+	
+	\begin{itemize}
+		\item \textbf{Data Format}: All datasets are provided as space-separated text files. Load them using \texttt{numpy.loadtxt()} (see template file).
+		\item Random initialization matters. Use the provided \texttt{random\_seed} parameter for reproducible results.
+		\item Be aware of numerical stability: use floating-point arithmetic throughout.
+		\item Noise points (label $-1$) are important; do not ignore them.
+		\item \textbf{Testing Locally}: Use the provided toy datasets and validation scripts to debug your implementation before submitting to INGInious.
+		\item \textbf{Time Management}: Do not start the project just before the deadline. Make full use of the time allocated.
+	\end{itemize}
+	
+
+	\end{document}
