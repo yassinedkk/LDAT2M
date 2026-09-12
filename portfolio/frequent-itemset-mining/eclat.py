@@ -1,0 +1,166 @@
+"""
+This file given to you as a skeleton for your implementations of frequent itemsets mininh algorithms.
+You are not obligated to use them and are free to write any class or method as long as the
+following requirements are respected:
+
+Your apriori, eclat and fpgrowth methods must take as parameters a string corresponding to the path to a valid
+dataset file and a double corresponding to the minimum frequency.
+You must write on the standard output (use the print() method) all the itemsets that are frequent in the dataset file
+according to the minimum frequency given. Each itemset has to be printed on one line following the format:
+[<item 1>, <item 2>, ... <item k>] (<frequency>).
+"""
+
+import re
+from pathlib import Path
+
+from math import ceil
+PATTERN_RE = re.compile(r"\[((?:\d+,? ?)+)\] *\(\d+\.\d+\)")
+
+class Dataset:
+    """Utility class to manage a dataset stored in a external file.
+    You can modfy this however you want."""
+
+    def __init__(self, path):
+        self.path = Path(path)
+        self.items = set()
+        self.transactions = []
+
+        self._load_data()
+
+    def _load_data(self):
+        if not self.path.exists():
+            raise FileNotFoundError(f"Dataset file not found at: {self.path}")
+
+        with self.path.open('r', encoding='utf-8') as file:
+            for line in file:
+                transaction = list(map(int, line.strip().split()))
+                if not transaction:
+                    continue
+                self.transactions.append(transaction)
+                self.items.update(transaction)
+
+    def __len__(self):
+        return len(self.transactions)
+
+    def __getitem__(self, index):
+        return self.transactions[index]
+
+    def __iter__(self):
+        return iter(self.transactions)
+
+    def __repr__(self):
+        return (f"Dataset(name='{self.path.name}', "
+                f"transactions={len(self)}, "
+                f"unique_items={len(self.items)})")
+
+    @property
+    def num_items(self) -> int:
+        return len(self.items)
+
+
+
+def get_patterns_from_file(filename):
+    """Parse itemset patterns from a file, returning None if any lines are malformed."""
+    patterns = set()
+    errors = []
+
+    with open(filename) as f:
+        for line in f:
+            line = line.rstrip()
+            if not line:
+                continue
+            match = PATTERN_RE.search(line)
+            if match is None:
+                errors.append(line)
+            else:
+                itemset = tuple(sorted(int(x) for x in match.group(1).split(', ')))
+                patterns.add(itemset)
+
+    if errors:
+        print(f"[ERROR] {len(errors)} malformed line(s) in '{filename}':")
+        for line in errors:
+            print(f"\t{line}")
+        return None
+
+    return patterns
+
+
+def _show_diff(label, patterns, limit = 10):
+    """Print a sample of patterns from a diff set."""
+    to_show = list(patterns)[:limit]
+    print(f"{label}:")
+    for pattern in to_show:
+        print(f"\t{pattern}")
+    print(f"(Showing {len(to_show)} of {len(patterns)})")
+
+
+def compare_solution_files(expected_file, actual_file):
+    """Compare patterns in actual_file against expected_file, reporting mismatches."""
+    expected = get_patterns_from_file(expected_file)
+    actual = get_patterns_from_file(actual_file)
+
+    if expected is None or actual is None:
+        return
+
+    missed = expected - actual
+    excess = actual - expected
+
+    if not missed and not excess:
+        print("The files contain the same patterns.")
+        return
+
+    if missed:
+        _show_diff("Missed itemsets from expected file", missed)
+    if excess:
+        _show_diff("Unexpected itemsets not in expected file", excess)
+
+def tranforme_verticale(D):
+    # transform dataset to vertical format 
+    table={}
+    for t ,d in enumerate(D):
+        for i in d:
+            if i not in table:
+                table[i]=set()
+            table[i].add(t)
+    return table
+
+def mine_eclat(filepath, min_frequency):
+    D=Dataset(filepath)
+    
+    threshold=ceil(min_frequency*len(D))
+ # build vertical table
+    table=tranforme_verticale(D)
+    frq_1_item=[]
+    table_sorted=sorted(table.keys())
+# find frequent 1-itemsets
+    for item in table_sorted:
+        if len(table[item])>=threshold:
+            frq_1_item.append(((item,),table[item]))
+
+    frequent={}
+    # use stack for depth-first exploration of itemsets
+    stack=[((),frq_1_item)]
+
+    while stack:
+        prefix, current_it=stack.pop()
+
+        for i ,(item,t) in enumerate(current_it):
+            # create new pattern 
+            new_pattern=tuple(sorted(prefix+item))
+            frequent[new_pattern]=len(t)
+
+            suffix=[]
+            # intersect with other itemsets to find candidates 
+            for j in range(i+1,len(current_it)):
+                item2, t2=current_it[j]
+                intersec= t & t2
+
+                if len(intersec)>=threshold:
+                    suffix.append((item2,intersec))
+                    # continue exploration if extension is exist
+            if suffix:
+                stack.append((new_pattern,suffix))
+    
+    for item, support in sorted(frequent.items()):
+        frq = support / len(D)
+        print(f"[{', '.join(map(str, item))}] ({frq:.6f})")
