@@ -13,8 +13,6 @@ according to the minimum frequency given. Each itemset has to be printed on one 
 import re
 from pathlib import Path
 
-from sklearn.base import defaultdict
-from itertools import combinations
 from math import ceil
 PATTERN_RE = re.compile(r"\[((?:\d+,? ?)+)\] *\(\d+\.\d+\)")
 
@@ -116,137 +114,53 @@ def compare_solution_files(expected_file, actual_file):
     if excess:
         _show_diff("Unexpected itemsets not in expected file", excess)
 
+def tranforme_verticale(D):
+    # transform dataset to vertical format 
+    table={}
+    for t ,d in enumerate(D):
+        for i in d:
+            if i not in table:
+                table[i]=set()
+            table[i].add(t)
+    return table
 
-def hash_based(D_sorted, threshold, B=200003):
-    # 1) hash-based candidate generation pour k=2
-    buck = [0] * B
-#count pairs in hash buckets
-    for t in D_sorted:
-        for i, j in combinations(t, 2):
-            h = (hash(i) * 1000003 + hash(j)) % B
-            buck[h] += 1
-#keep pairs whose bucket count >= threshold
-    C2 = set()
-    for t in D_sorted:
-        for i, j in combinations(t, 2):
-            h = (hash(i) * 1000003 + hash(j)) % B
-            if buck[h] >= threshold:
-                C2.add((i, j))
-
-    return sorted(C2)
-
-def find_L1(D, mins):
-  # count support of individual items
-    c = {}
-    for t in D:
-        for x in t:
-            c[x] = c.get(x, 0) + 1
-    L1 = {}
-    for i, cnt in c.items():
-        if cnt >= mins:
-            L1[(i,)] = cnt
-    return L1
-
-def _has_infrequent_subset(c, L_k_1):
-   # check if subsets is infrequent
-    k = len(c)
-    for s in combinations(c, k - 1):
-        if s not in L_k_1:
-            return True
-    return False
-
-def _apriori_gen(L_k_1):
-   # generate candidates of size k from frequent itemsets of size k-1
-    L = sorted(L_k_1)
+def mine_eclat(filepath, min_frequency):
+    D=Dataset(filepath)
     
-    L_set = set(L)
-    Ck = set()
+    threshold=ceil(min_frequency*len(D))
+ # build vertical table
+    table=tranforme_verticale(D)
+    frq_1_item=[]
+    table_sorted=sorted(table.keys())
+# find frequent 1-itemsets
+    for item in table_sorted:
+        if len(table[item])>=threshold:
+            frq_1_item.append(((item,),table[item]))
 
-    for i in range(len(L)):
-        l1 = L[i]
-        for j in range(i + 1, len(L)):
-            l2 = L[j]
+    frequent={}
+    # use stack for depth-first exploration of itemsets
+    stack=[((),frq_1_item)]
 
-            #join step same prefix 
-            if len(l1) > 1 and l1[:-1] != l2[:-1]:
-                break
+    while stack:
+        prefix, current_it=stack.pop()
 
-            c = l1 + (l2[-1],)
-# prune step
-            if not _has_infrequent_subset(c, L_set):
-                Ck.add(c)
+        for i ,(item,t) in enumerate(current_it):
+            # create new pattern 
+            new_pattern=tuple(sorted(prefix+item))
+            frequent[new_pattern]=len(t)
 
-    return sorted(Ck)
+            suffix=[]
+            # intersect with other itemsets to find candidates 
+            for j in range(i+1,len(current_it)):
+                item2, t2=current_it[j]
+                intersec= t & t2
 
-def subset(Ck, t, k):
-   # generate subsets of t of size k that are in Ck
-    for comb in combinations(t, k):
-        if comb in Ck:
-            yield comb
-
-
-
-
-def mine_apriori(filepath, min_frequency):
- # load dataset
-    dataset = Dataset(filepath)
-    n = len(dataset)
+                if len(intersec)>=threshold:
+                    suffix.append((item2,intersec))
+                    # continue exploration if extension is exist
+            if suffix:
+                stack.append((new_pattern,suffix))
     
-
-    threshold = ceil(min_frequency * n)  
-
-# sort transactions and find L1
-    D_sorted = []
-    for t in dataset:
-        if t:
-            D_sorted.append(tuple(sorted(t)))
-
-   
-    L1 = find_L1(D_sorted, threshold)
-    #keep only items frequent 
-    L1_items = set(x[0] for x in L1.keys())
-
-  
-    D = []
-    for t in D_sorted:
-        fqt = tuple(x for x in t if x in L1_items)
-        if fqt:
-            D.append(fqt)
-
-
-    for item, c in sorted(L1.items()):
-        frequent = c / n
-        print(f"[{', '.join(map(str, item))}] ({frequent:.6f})")
-
-    L_k_1 = sorted(L1.keys())  
-    k = 2
-
-    
-    while L_k_1:
-       # use hash-based candidate 
-        if k == 2:
-            Ck = hash_based(D, threshold)
-        else:
-         Ck = _apriori_gen(L_k_1)
-
-
-        support = {c: 0 for c in Ck}
-        Ck_set = set(Ck)
-
-        #scan dataset to count support 
-        for t in D:
-            if len(t) < k:
-                continue
-            for c in subset(Ck_set, t, k):
-                support[c] += 1
-
-       #keep only candidates that are frequent
-        Lk = {item: c for item, c in support.items() if c >= threshold}
-
-        #print frequent itemsets of size k
-        for item, c in sorted(Lk.items()):
-            freq = c / n
-            print(f"[{', '.join(map(str, item))}] ({freq:.6f})")
-
-        L_k_1 = sorted(Lk.keys())
-        k += 1
+    for item, support in sorted(frequent.items()):
+        frq = support / len(D)
+        print(f"[{', '.join(map(str, item))}] ({frq:.6f})")
