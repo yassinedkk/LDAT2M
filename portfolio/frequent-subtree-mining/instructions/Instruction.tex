@@ -1,0 +1,211 @@
+\documentclass[]{article}
+
+\usepackage{helvet}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{xspace}
+\usepackage[usenames]{color}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{pstricks}
+\usepackage{pst-tree}
+
+\definecolor{codeBlue}{rgb}{0,0,1}
+\definecolor{webred}{rgb}{0.5,0,0}
+\definecolor{codeGreen}{rgb}{0,0.5,0}
+\definecolor{codeGrey}{rgb}{0.6,0.6,0.6}
+\definecolor{webdarkblue}{rgb}{0,0,0.4}
+\definecolor{webgreen}{rgb}{0,0.3,0}
+\definecolor{webblue}{rgb}{0,0,0.8}
+\definecolor{orange}{rgb}{0.7,0.1,0.1}
+
+\usepackage{caption}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{listings}
+\lstset{
+	language=Python,
+	frame=single,
+	flexiblecolumns=true,
+	numbers=none,
+	keywordstyle=\ttfamily\textcolor{blue},
+	stringstyle=\ttfamily\textcolor{red},
+	commentstyle=\ttfamily\textcolor{green},
+	breaklines=true,
+	extendedchars=true,
+	basicstyle=\ttfamily\scriptsize,
+	showstringspaces=false
+}
+
+\title{LINGI2364: Mining Patterns in Data \\ \bf Project 2: Frequent Subtrees Mining}
+\date{}
+
+\begin{document}
+	\maketitle
+	
+	\section{Context}
+There exist several algorithms for mining frequent sequences as well as for mining frequent trees. Although these structures differ in complexity, they share common principles in terms of pattern growth and search space exploration.
+
+In this project, you will adapt a \textbf{sequence mining algorithm} of your choice (such as PrefixSpan or GSP) to mine frequent \textbf{induced rooted subtrees} from a database of rooted ordered trees. An induced subtree preserves the parent-child relationships of the original tree.
+
+\section{Tree Representation}
+
+To represent a rooted ordered tree in a linear format, we use a string representation based on a pre-order traversal with a special value, $-1$, to denote backtracking to the parent node.
+
+Consider the following example tree:
+
+\begin{center}
+\pstree[nodesep=3pt,levelsep=1cm]{\TR{1}}{
+  \TR{2}
+  \pstree{\TR{3}}{
+    \TR{4}
+    \TR{5}
+  }
+}
+\end{center}
+
+The representation of this tree is: \texttt{1 2 -1 3 4 -1 5}. 
+
+\begin{itemize}
+    \item We start at the root \textbf{1}.
+    \item We visit the first child \textbf{2}.
+    \item Since \textbf{2} has no children, we backtrack to \textbf{1} using \textbf{-1}.
+    \item We visit the next child of \textbf{1}, which is \textbf{3}.
+    \item We visit the first child of \textbf{3}, which is \textbf{4}.
+    \item Since \textbf{4} has no children, we backtrack to \textbf{3} using \textbf{-1}.
+    \item We visit the next child of \textbf{3}, which is \textbf{5}.
+\end{itemize}
+
+Note that trailing $-1$s are often omitted in this representation.
+
+The project will be done in Python and a template is provided in \texttt{sim\_template.py}. You are free to modify this template as long as you respect the directives
+
+
+\subsection{The Tree Class}
+
+The \texttt{Tree} class represents a single rooted ordered tree. It uses two main lists to describe the structure:
+\begin{itemize}
+    \item \texttt{labels}: A list of integers representing the label of each node.
+    \item \texttt{parents}: A list of integers where each element at index $i$ is the index of the parent of node $i$. The root of the tree has $-1$ as its parent.
+\end{itemize}
+
+For example, the tree \texttt{1 2 -1 3 4 -1 5} would be represented as:
+\begin{lstlisting}
+labels  = [1, 2, 3, 4, 5]
+parents = [-1, 0, 0, 2, 2]
+\end{lstlisting}
+
+Upon initialization, the \texttt{Tree} class also computes:
+\begin{itemize}
+    \item \texttt{self.children}: A list of lists where \texttt{children[i]} contains the indices of the children of node $i$.
+    \item \texttt{self.label\_index}: A dictionary mapping each label to the list of node indices that carry that label, allowing for fast lookup of starting points for subtrees.
+\end{itemize}
+
+\subsection{The Dataset Class}
+
+The \texttt{Dataset} class is responsible for loading the database of trees from a file. It parses each line (a $-1$ delimited sequence) and converts it into a \texttt{Tree} object.
+
+The parsing logic uses a stack-based approach:
+\begin{itemize}
+    \item When a label is encountered, it is added to the \texttt{labels} list. Its parent is the node currently at the top of the stack. The new node index is then pushed onto the stack.
+    \item When a \texttt{-1} is encountered, it indicates that the current branch is finished, so the top node is popped from the stack.
+\end{itemize}
+
+\section{Directives}
+	The project must be completed in groups of two students and will be graded using INGInious.
+	
+	You must implement:
+	\begin{enumerate}
+	    \item The \texttt{is\_valid\_subtree} method in the \texttt{Tree} class.
+	    \item A mining algorithm adapted from a sequence mining approach.
+	\end{enumerate}
+	
+
+\subsection{The Tree Checker}
+
+You are required to implement a \texttt{is\_valid\_subtree} method in the \texttt{Tree} class. This method will be tested independently on INGInious.
+
+\begin{lstlisting}
+class Tree:
+    def __init__(self, labels, parents):
+        self.labels = labels
+        self.parents = parents
+
+    def is_valid_subtree(self, pattern_tree):
+        """
+        pattern_tree: list of labels in -1 delimited format
+        returns: True if the pattern_tree is an induced rooted subtree of this tree
+        """
+        # TODO: Implement this method
+        pass
+\end{lstlisting}
+
+\subsection{The mining algorithm}
+
+You must implement a \texttt{mine} method in \texttt{miner.py}:
+\begin{lstlisting}
+def mine(dataset_path, min_frequency):
+    """
+    dataset_path: path to the file containing trees (one per line)
+    min_frequency: float between 0 and 1
+    """
+    pass
+\end{lstlisting}
+
+
+\section{Output}
+
+Your program must print every frequent subtree to the standard output in the following format:
+\begin{verbatim}
+[node1, node2, ..., -1, nodeK] (freq)
+\end{verbatim}
+where \texttt{freq} is the relative frequency (support). The nodes should follow the $-1$ delimited pre-order traversal. Note that trailing $-1$s are usually omitted.
+
+\section{Grading}
+
+You will be graded according to the following criteria:
+
+\begin{itemize}
+	\item \textbf{Correctness and performance of your implementations (8/20).} This includes:
+	\begin{itemize}
+	    \item The correctness of the \texttt{is\_valid\_subtree} method (20\% of implementation grade).
+	    \item The correctness and performance of your mining algorithm (80\% of implementation grade).
+	\end{itemize}
+	\item \textbf{Quality and relevance of your report (12/20).} This includes the justification of your implementation choices, the analysis of your experimental results, and the overall clarity of your presentation.
+\end{itemize}
+
+\section{Report}
+\label{report}
+
+Your report must not exceed 4 pages and should be written in correct English. It must include:
+\begin{itemize}
+    \item A description of how you adapted the sequence mining algorithm to trees.
+    \item The key implementation choices you made (e.g., data structures used for the search).
+    \item Any optimizations you implemented to improve performance.
+    \item An experimental evaluation on the provided datasets, discussing execution time and scalability with respect to the support threshold.
+    \item A clear and structured analysis of the results.
+\end{itemize}
+
+Be precise and concise. Use tables or graphics to depict your results where appropriate. Don't forget to include your group number and the names/NOMAs of all members.
+
+\section{Datasets}
+
+Two datasets are available in the \texttt{datasets/} directory. For each dataset, some example solutions for specific thresholds are provided in the \texttt{solutions/} directory (e.g., \texttt{small\_1\_0.1} for the \texttt{small\_1} dataset at 10\% frequency).
+
+In particular, a \textbf{toy dataset} (\texttt{toy.trees}) and its corresponding solution are provided to help you with the initial debugging of your algorithm. We strongly encourage you to test your implementation locally using these examples before submitting to INGInious.
+
+\section{Important Tips}
+
+\begin{itemize}
+    \item \textbf{Efficiency:} Tree mining can be computationally expensive. Think about how to prune the search space effectively.
+    \item \textbf{Backtracking:} Properly handling the $-1$ symbol is key to correctly traversing and comparing trees.
+    \item \textbf{Testing:} Use the provided \texttt{test\_validtree.py} script to verify your \texttt{Tree} class implementation.
+    \item \textbf{INGInious:} Remember that INGInious is a grading tool, not a debugger. Ensure your code works locally first.
+\end{itemize}
+
+\end{document}
