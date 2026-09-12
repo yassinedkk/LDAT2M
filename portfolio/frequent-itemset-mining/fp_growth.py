@@ -13,7 +13,6 @@ according to the minimum frequency given. Each itemset has to be printed on one 
 import re
 from pathlib import Path
 
-from sklearn.base import defaultdict
 from collections import defaultdict
 PATTERN_RE = re.compile(r"\[((?:\d+,? ?)+)\] *\(\d+\.\d+\)")
 
