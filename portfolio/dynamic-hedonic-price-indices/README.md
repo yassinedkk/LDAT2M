@@ -88,7 +88,7 @@ reduces the influence of extreme residuals.
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 jupyter lab research_notebook.ipynb
 ```
